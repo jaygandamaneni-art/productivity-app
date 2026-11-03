@@ -60,25 +60,64 @@
       <div class="xp-bar"><div class="xp-fill" id="xp-fill"></div></div>
     </section>
 
-    <section class="card">
-      <h2>Habits</h2>
-      <form id="habit-form" class="add-form">
-        <input type="text" id="habit-input" placeholder="New habit (e.g. Wall passing)" required>
-        <button type="submit">Add</button>
-      </form>
-      <ul id="habit-list" class="list"></ul>
+    <nav class="tabs">
+      <button class="tab active" data-tab="today">Today</button>
+      <button class="tab" data-tab="habits">Habits</button>
+    </nav>
+
+    <!-- TODAY TAB -->
+    <section id="tab-today">
+      <div class="card">
+        <h2>Today</h2>
+        <form id="task-form" class="add-form">
+          <input type="text" id="task-input" placeholder="Add a task for today" required>
+          <button type="submit">Add</button>
+        </form>
+        <ul id="today-list" class="list"></ul>
+      </div>
     </section>
 
-    <section class="card">
-      <h2>Today's Tasks</h2>
-      <form id="task-form" class="add-form">
-        <input type="text" id="task-input" placeholder="New task" required>
-        <button type="submit">Add</button>
-      </form>
-      <ul id="task-list" class="list"></ul>
+    <!-- HABITS TAB -->
+    <section id="tab-habits" class="hidden">
+      <div class="card">
+        <h2>My habits</h2>
+        <p class="hint">Things you want to build. They show up in Today on their scheduled days.</p>
+        <form id="habit-form" class="add-form">
+          <input type="text" id="habit-input" placeholder="New habit (e.g. Wall passing)" required>
+          <button type="submit">Add</button>
+        </form>
+        <ul id="habit-list" class="list"></ul>
+      </div>
     </section>
 
   </main>
+
+  <!-- ========== HABIT SCHEDULE POPUP ========== -->
+  <div class="modal hidden" id="schedule-modal">
+    <div class="modal-box card">
+      <h2 id="modal-title">How often?</h2>
+
+      <div class="freq-row">
+        <button type="button" class="freq on" data-freq="daily">Daily</button>
+        <button type="button" class="freq" data-freq="weekly">Weekly</button>
+        <button type="button" class="freq" data-freq="monthly">Monthly</button>
+      </div>
+
+      <div id="weekly-pick" class="pick hidden">
+        <p class="hint">Which days?</p>
+        <div class="chips" id="weekday-chips"></div>
+      </div>
+
+      <div id="monthly-pick" class="pick hidden">
+        <p class="hint">Which dates each month?</p>
+        <div class="chips" id="date-chips"></div>
+      </div>
+
+      <p class="auth-error" id="modal-error"></p>
+      <button type="button" class="btn" id="modal-save">Save habit</button>
+      <button type="button" class="link" id="modal-cancel">Cancel</button>
+    </div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="script.js"></script>
