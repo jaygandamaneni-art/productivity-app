@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Quest</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+
+    <header class="topbar">
+      <div>
+        <p class="date" id="today-date"></p>
+        <h1>Daily Quest</h1>
+      </div>
+      <div class="streak">🔥 <span id="streak-count">0</span> day streak</div>
+    </header>
+
+    <section class="card level-card">
+      <div class="level-row">
+        <span class="level" id="level-label">Level 1</span>
+        <span class="xp-text" id="xp-text">0 / 100 XP</span>
+      </div>
+      <div class="xp-bar"><div class="xp-fill" id="xp-fill"></div></div>
+    </section>
+
+    <section class="card">
+      <h2>Habits</h2>
+      <form id="habit-form" class="add-form">
+        <input type="text" id="habit-input" placeholder="New habit (e.g. Wall passing)" required>
+        <button type="submit">Add</button>
+      </form>
+      <ul id="habit-list" class="list"></ul>
+    </section>
+
+    <section class="card">
+      <h2>Today's Tasks</h2>
+      <form id="task-form" class="add-form">
+        <input type="text" id="task-input" placeholder="New task" required>
+        <button type="submit">Add</button>
+      </form>
+      <ul id="task-list" class="list"></ul>
+    </section>
+
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
