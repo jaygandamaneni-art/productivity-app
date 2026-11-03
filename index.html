@@ -7,14 +7,49 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="app">
+
+  <!-- ========== LOGIN / SIGN UP SCREEN ========== -->
+  <main class="auth hidden" id="auth-view">
+    <h1>Daily Quest</h1>
+    <p class="tagline">Build habits. Earn XP. Level up.</p>
+
+    <div class="card auth-card" id="auth-home">
+      <button class="btn" id="go-signup">Sign up</button>
+      <button class="btn secondary" id="go-login">Log in</button>
+    </div>
+
+    <form class="card auth-card hidden" id="signup-form">
+      <h2>Create your account</h2>
+      <input type="text" id="signup-username" placeholder="Choose a username" autocomplete="username" required>
+      <input type="password" id="signup-password" placeholder="Password (6+ characters)" autocomplete="new-password" required>
+      <input type="password" id="signup-confirm" placeholder="Confirm password" autocomplete="new-password" required>
+      <p class="auth-error" id="signup-error"></p>
+      <button type="submit" class="btn">Create account</button>
+      <button type="button" class="link" data-back>Back</button>
+    </form>
+
+    <form class="card auth-card hidden" id="login-form">
+      <h2>Welcome back</h2>
+      <input type="text" id="login-username" placeholder="Username" autocomplete="username" required>
+      <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" required>
+      <p class="auth-error" id="login-error"></p>
+      <button type="submit" class="btn">Log in</button>
+      <button type="button" class="link" data-back>Back</button>
+    </form>
+  </main>
+
+  <!-- ========== THE APP ========== -->
+  <main class="app hidden" id="app-view">
 
     <header class="topbar">
       <div>
         <p class="date" id="today-date"></p>
         <h1>Daily Quest</h1>
       </div>
-      <div class="streak">🔥 <span id="streak-count">0</span> day streak</div>
+      <div class="topbar-right">
+        <div class="streak">🔥 <span id="streak-count">0</span> day streak</div>
+        <button class="link" id="logout-btn"><span id="user-label"></span> · Log out</button>
+      </div>
     </header>
 
     <section class="card level-card">
@@ -44,6 +79,8 @@
     </section>
 
   </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="script.js"></script>
 </body>
 </html>
