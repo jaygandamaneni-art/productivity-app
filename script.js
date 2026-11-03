@@ -15,7 +15,14 @@ function validUsername(u) {
 }
 
 // ---------- State ----------
-let state = { xp: 0, habits: [], tasks: [] };
+// habits: [{ id, name, freq: "daily"|"weekly"|"monthly", days: [0-6], dates: [1-31], createdOn }]
+// tasks:  [{ id, name, doneDate }]
+// log:    { "YYYY-MM-DD": [{ id, name, kind }] }  <- what got finished each day (calendar uses this)
+function emptyState() {
+  return { xp: 0, habits: [], tasks: [], log: {} };
+}
+
+let state = emptyState();
 let currentUser = null;
 let canSave = false; // stays false if loading failed, so we never overwrite cloud data
 
@@ -30,14 +37,16 @@ async function loadCloud() {
     console.error(error);
     canSave = false;
     alert("Couldn't load your data. Check your connection and refresh the page.");
-    state = { xp: 0, habits: [], tasks: [] };
+    state = emptyState();
     return;
   }
 
-  if (data && data.data && data.data.habits && data.data.tasks) {
-    state = data.data;
+  const saved = data && data.data;
+  if (saved && saved.habits && saved.tasks && saved.log) {
+    state = saved;
   } else {
-    state = { xp: 0, habits: [], tasks: [] };
+    // new account, or old data from before this update: start fresh
+    state = emptyState();
   }
   canSave = true;
 }
@@ -55,6 +64,7 @@ async function save() {
 // ---------- Helpers ----------
 const HABIT_XP = 10;
 const TASK_XP = 5;
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function dateKey(d) {
   const y = d.getFullYear();
@@ -83,9 +93,7 @@ function countStreak(daySet) {
 }
 
 function overallStreak() {
-  const days = new Set();
-  state.habits.forEach(h => h.doneDates.forEach(x => days.add(x)));
-  state.tasks.forEach(t => { if (t.done && t.doneDate) days.add(t.doneDate); });
+  const days = new Set(Object.keys(state.log).filter(k => state.log[k].length > 0));
   return countStreak(days);
 }
 
@@ -101,82 +109,140 @@ function levelInfo(xp) {
   return { level, remaining, need };
 }
 
-// ---------- Actions ----------
-function addHabit(name) {
-  state.habits.push({ id: newId(), name, doneDates: [] });
-  save(); render();
+// Is this habit scheduled on the given date?
+function isDue(habit, date) {
+  if (dateKey(date) < habit.createdOn) return false;
+  if (habit.freq === "daily") return true;
+  if (habit.freq === "weekly") return habit.days.includes(date.getDay());
+  if (habit.freq === "monthly") return habit.dates.includes(date.getDate());
+  return false;
 }
 
-function toggleHabit(id) {
-  const habit = state.habits.find(h => h.id === id);
-  const t = today();
-  if (habit.doneDates.includes(t)) {
-    habit.doneDates = habit.doneDates.filter(x => x !== t);
-    state.xp = Math.max(0, state.xp - HABIT_XP);
-  } else {
-    habit.doneDates.push(t);
-    state.xp += HABIT_XP;
+function describeSchedule(h) {
+  if (h.freq === "daily") return "Every day";
+  if (h.freq === "weekly") {
+    return [...h.days].sort((a, b) => a - b).map(d => WEEKDAYS[d]).join(", ");
   }
-  save(); render();
+  return "Monthly on the " + [...h.dates].sort((a, b) => a - b).join(", ");
 }
 
-function deleteHabit(id) {
-  state.habits = state.habits.filter(h => h.id !== id);
-  save(); render();
+function timesDone(habitId) {
+  return Object.values(state.log).reduce(
+    (n, arr) => n + arr.filter(e => e.id === habitId).length, 0
+  );
+}
+
+// ---------- XP popups ----------
+function showToast(text, big) {
+  const el = document.createElement("div");
+  el.className = "toast" + (big ? " big" : "");
+  el.textContent = text;
+  document.body.append(el);
+  setTimeout(() => el.remove(), 1500);
+}
+
+function awardXP(amount) {
+  const before = levelInfo(state.xp).level;
+  state.xp += amount;
+  const after = levelInfo(state.xp).level;
+  showToast("+" + amount + " XP");
+  if (after > before) {
+    setTimeout(() => showToast("🎉 Level " + after + "!", true), 600);
+  }
+}
+
+function removeXP(amount) {
+  state.xp = Math.max(0, state.xp - amount);
+}
+
+// ---------- Actions ----------
+function toggleItem(kind, id) {
+  const t = today();
+  if (!state.log[t]) state.log[t] = [];
+  const entries = state.log[t];
+  const idx = entries.findIndex(e => e.id === id);
+  const xp = kind === "habit" ? HABIT_XP : TASK_XP;
+  const task = kind === "task" ? state.tasks.find(x => x.id === id) : null;
+
+  if (idx >= 0) {
+    // uncheck
+    entries.splice(idx, 1);
+    if (entries.length === 0) delete state.log[t];
+    removeXP(xp);
+    if (task) task.doneDate = null;
+  } else {
+    // check
+    const source = kind === "habit"
+      ? state.habits.find(h => h.id === id)
+      : task;
+    if (!source) return;
+    entries.push({ id, name: source.name, kind });
+    awardXP(xp);
+    if (task) task.doneDate = t;
+  }
+  save();
+  render();
 }
 
 function addTask(name) {
-  state.tasks.push({ id: newId(), name, done: false, doneDate: null });
-  save(); render();
-}
-
-function toggleTask(id) {
-  const task = state.tasks.find(t => t.id === id);
-  if (task.done) {
-    task.done = false;
-    task.doneDate = null;
-    state.xp = Math.max(0, state.xp - TASK_XP);
-  } else {
-    task.done = true;
-    task.doneDate = today();
-    state.xp += TASK_XP;
-  }
-  save(); render();
+  state.tasks.push({ id: newId(), name, doneDate: null });
+  save();
+  render();
 }
 
 function deleteTask(id) {
-  state.tasks = state.tasks.filter(t => t.id !== id);
-  save(); render();
+  state.tasks = state.tasks.filter(x => x.id !== id);
+  save();
+  render();
+}
+
+function deleteHabit(id) {
+  const h = state.habits.find(x => x.id === id);
+  if (!h) return;
+  if (!confirm('Delete "' + h.name + '"? Your past check-ins stay on the calendar.')) return;
+  state.habits = state.habits.filter(x => x.id !== id);
+  save();
+  render();
 }
 
 // ---------- Rendering ----------
-function makeItem({ text, done, meta, onToggle, onDelete }) {
+function makeItem({ text, sub, badge, done, onToggle, onDelete }) {
   const li = document.createElement("li");
   li.className = "item" + (done ? " done" : "");
 
-  const check = document.createElement("button");
-  check.className = "item-check";
-  check.textContent = done ? "✓" : "";
-  check.addEventListener("click", onToggle);
+  if (onToggle) {
+    const check = document.createElement("button");
+    check.className = "item-check";
+    check.textContent = done ? "✓" : "";
+    check.addEventListener("click", onToggle);
+    li.append(check);
+  }
 
   const label = document.createElement("span");
   label.className = "item-text";
   label.textContent = text;
+  if (sub) {
+    const s = document.createElement("span");
+    s.className = "item-sub";
+    s.textContent = sub;
+    label.append(s);
+  }
+  li.append(label);
 
-  li.append(check, label);
-
-  if (meta) {
-    const m = document.createElement("span");
-    m.className = "item-meta";
-    m.textContent = meta;
-    li.append(m);
+  if (badge) {
+    const b = document.createElement("span");
+    b.className = "badge";
+    b.textContent = badge;
+    li.append(b);
   }
 
-  const del = document.createElement("button");
-  del.className = "item-del";
-  del.textContent = "✕";
-  del.addEventListener("click", onDelete);
-  li.append(del);
+  if (onDelete) {
+    const del = document.createElement("button");
+    del.className = "item-del";
+    del.textContent = "✕";
+    del.addEventListener("click", onDelete);
+    li.append(del);
+  }
 
   return li;
 }
@@ -188,9 +254,56 @@ function renderEmpty(list, message) {
   list.append(li);
 }
 
-function render() {
+function renderToday() {
   const t = today();
+  const doneIds = new Set((state.log[t] || []).map(e => e.id));
+  const list = document.getElementById("today-list");
+  list.innerHTML = "";
+  let count = 0;
 
+  state.habits.forEach(h => {
+    if (!isDue(h, new Date())) return;
+    count++;
+    list.append(makeItem({
+      text: h.name,
+      badge: "Habit",
+      done: doneIds.has(h.id),
+      onToggle: () => toggleItem("habit", h.id)
+    }));
+  });
+
+  state.tasks.forEach(x => {
+    if (x.doneDate && x.doneDate !== t) return; // finished on an earlier day
+    count++;
+    list.append(makeItem({
+      text: x.name,
+      done: doneIds.has(x.id),
+      onToggle: () => toggleItem("task", x.id),
+      onDelete: () => deleteTask(x.id)
+    }));
+  });
+
+  if (count === 0) renderEmpty(list, "Nothing today. Add a task above or create a habit.");
+}
+
+function renderHabits() {
+  const list = document.getElementById("habit-list");
+  list.innerHTML = "";
+  if (state.habits.length === 0) {
+    renderEmpty(list, "No habits yet. Add the first one you want to build.");
+    return;
+  }
+  state.habits.forEach(h => {
+    const n = timesDone(h.id);
+    list.append(makeItem({
+      text: h.name,
+      sub: describeSchedule(h) + " · done " + n + (n === 1 ? " time" : " times"),
+      onDelete: () => deleteHabit(h.id)
+    }));
+  });
+}
+
+function render() {
   document.getElementById("today-date").textContent =
     new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
   document.getElementById("streak-count").textContent = overallStreak();
@@ -200,34 +313,104 @@ function render() {
   document.getElementById("xp-text").textContent = `${info.remaining} / ${info.need} XP`;
   document.getElementById("xp-fill").style.width = (info.remaining / info.need) * 100 + "%";
 
-  const habitList = document.getElementById("habit-list");
-  habitList.innerHTML = "";
-  if (state.habits.length === 0) renderEmpty(habitList, "No habits yet. Add your first one above.");
-  state.habits.forEach(h => {
-    const streak = countStreak(new Set(h.doneDates));
-    habitList.append(makeItem({
-      text: h.name,
-      done: h.doneDates.includes(t),
-      meta: streak > 0 ? "🔥 " + streak : "",
-      onToggle: () => toggleHabit(h.id),
-      onDelete: () => deleteHabit(h.id)
-    }));
+  renderToday();
+  renderHabits();
+}
+
+// ---------- Tabs ----------
+document.querySelectorAll(".tab").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b === btn));
+    document.getElementById("tab-today").classList.toggle("hidden", btn.dataset.tab !== "today");
+    document.getElementById("tab-habits").classList.toggle("hidden", btn.dataset.tab !== "habits");
+  });
+});
+
+// ---------- Schedule popup ----------
+const modal = document.getElementById("schedule-modal");
+const weekdayChips = document.getElementById("weekday-chips");
+const dateChips = document.getElementById("date-chips");
+let pending = { name: "", freq: "daily", days: new Set(), dates: new Set() };
+
+function buildChips() {
+  WEEKDAYS.forEach((label, i) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip";
+    chip.textContent = label;
+    chip.addEventListener("click", () => {
+      if (pending.days.has(i)) pending.days.delete(i); else pending.days.add(i);
+      chip.classList.toggle("on", pending.days.has(i));
+    });
+    weekdayChips.append(chip);
   });
 
-  const taskList = document.getElementById("task-list");
-  taskList.innerHTML = "";
-  const visible = state.tasks.filter(x => !x.done || x.doneDate === t);
-  if (visible.length === 0) renderEmpty(taskList, "Nothing on the list. Add a task above.");
-  visible.forEach(x => {
-    taskList.append(makeItem({
-      text: x.name,
-      done: x.done,
-      meta: "",
-      onToggle: () => toggleTask(x.id),
-      onDelete: () => deleteTask(x.id)
-    }));
-  });
+  for (let d = 1; d <= 31; d++) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip";
+    chip.textContent = d;
+    chip.addEventListener("click", () => {
+      if (pending.dates.has(d)) pending.dates.delete(d); else pending.dates.add(d);
+      chip.classList.toggle("on", pending.dates.has(d));
+    });
+    dateChips.append(chip);
+  }
 }
+
+function setFreq(freq) {
+  pending.freq = freq;
+  document.querySelectorAll(".freq").forEach(b =>
+    b.classList.toggle("on", b.dataset.freq === freq)
+  );
+  document.getElementById("weekly-pick").classList.toggle("hidden", freq !== "weekly");
+  document.getElementById("monthly-pick").classList.toggle("hidden", freq !== "monthly");
+  document.getElementById("modal-error").textContent = "";
+}
+
+function openModal(name) {
+  pending = { name, freq: "daily", days: new Set(), dates: new Set() };
+  document.querySelectorAll(".chip").forEach(c => c.classList.remove("on"));
+  document.getElementById("modal-title").textContent = 'How often: "' + name + '"?';
+  setFreq("daily");
+  modal.classList.remove("hidden");
+}
+
+function closeModal() {
+  modal.classList.add("hidden");
+}
+
+document.querySelectorAll(".freq").forEach(b =>
+  b.addEventListener("click", () => setFreq(b.dataset.freq))
+);
+
+document.getElementById("modal-cancel").addEventListener("click", closeModal);
+
+document.getElementById("modal-save").addEventListener("click", () => {
+  const errorBox = document.getElementById("modal-error");
+  if (pending.freq === "weekly" && pending.days.size === 0) {
+    errorBox.textContent = "Pick at least one day.";
+    return;
+  }
+  if (pending.freq === "monthly" && pending.dates.size === 0) {
+    errorBox.textContent = "Pick at least one date.";
+    return;
+  }
+
+  state.habits.push({
+    id: newId(),
+    name: pending.name,
+    freq: pending.freq,
+    days: [...pending.days],
+    dates: [...pending.dates],
+    createdOn: today()
+  });
+
+  document.getElementById("habit-input").value = "";
+  closeModal();
+  save();
+  render();
+});
 
 // ---------- Screens ----------
 const authView = document.getElementById("auth-view");
@@ -271,7 +454,7 @@ signupForm.addEventListener("submit", async e => {
   const errorBox = document.getElementById("signup-error");
   const username = document.getElementById("signup-username").value.trim();
   const password = document.getElementById("signup-password").value;
-  const confirm = document.getElementById("signup-confirm").value;
+  const confirmPw = document.getElementById("signup-confirm").value;
   errorBox.textContent = "";
 
   if (!validUsername(username)) {
@@ -282,7 +465,7 @@ signupForm.addEventListener("submit", async e => {
     errorBox.textContent = "Password must be at least 6 characters.";
     return;
   }
-  if (password !== confirm) {
+  if (password !== confirmPw) {
     errorBox.textContent = "Passwords don't match.";
     return;
   }
@@ -345,21 +528,13 @@ document.getElementById("logout-btn").addEventListener("click", async () => {
   await db.auth.signOut();
   currentUser = null;
   canSave = false;
-  state = { xp: 0, habits: [], tasks: [] };
+  state = emptyState();
   signupForm.reset();
   loginForm.reset();
   showAuth();
 });
 
-// ---------- Habit and task forms ----------
-document.getElementById("habit-form").addEventListener("submit", e => {
-  e.preventDefault();
-  const input = document.getElementById("habit-input");
-  const name = input.value.trim();
-  if (name) addHabit(name);
-  input.value = "";
-});
-
+// ---------- Task and habit forms ----------
 document.getElementById("task-form").addEventListener("submit", e => {
   e.preventDefault();
   const input = document.getElementById("task-input");
@@ -368,7 +543,15 @@ document.getElementById("task-form").addEventListener("submit", e => {
   input.value = "";
 });
 
+document.getElementById("habit-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const name = document.getElementById("habit-input").value.trim();
+  if (name) openModal(name); // the popup finishes adding it
+});
+
 // ---------- Start: are they already logged in? ----------
+buildChips();
+
 (async function init() {
   const { data } = await db.auth.getSession();
   if (data.session) {
