@@ -1,25 +1,61 @@
-// ---------- Storage ----------
-const STORAGE_KEY = "dailyquest-v1";
+// ---------- Supabase connection ----------
+const SUPABASE_URL = "https://vvknwuifopgrabkpxxtm.supabase.co";
+const SUPABASE_KEY = "sb_publishable_ntqSxScC5JRnKEERIjmFxQ_IcZkLghb";
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let state = load();
+// Usernames become a fake email behind the scenes (users never see it)
+const AUTH_DOMAIN = "dailyquest.app";
 
-function load() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (saved && saved.habits && saved.tasks) return saved;
-  } catch (e) {}
-  return { xp: 0, habits: [], tasks: [] };
+function fakeEmail(username) {
+  return username.toLowerCase() + "@" + AUTH_DOMAIN;
 }
 
-function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+function validUsername(u) {
+  return /^[a-zA-Z0-9_]{3,20}$/.test(u);
+}
+
+// ---------- State ----------
+let state = { xp: 0, habits: [], tasks: [] };
+let currentUser = null;
+let canSave = false; // stays false if loading failed, so we never overwrite cloud data
+
+async function loadCloud() {
+  const { data, error } = await db
+    .from("user_data")
+    .select("data")
+    .eq("user_id", currentUser.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error(error);
+    canSave = false;
+    alert("Couldn't load your data. Check your connection and refresh the page.");
+    state = { xp: 0, habits: [], tasks: [] };
+    return;
+  }
+
+  if (data && data.data && data.data.habits && data.data.tasks) {
+    state = data.data;
+  } else {
+    state = { xp: 0, habits: [], tasks: [] };
+  }
+  canSave = true;
+}
+
+async function save() {
+  if (!currentUser || !canSave) return;
+  const { error } = await db.from("user_data").upsert({
+    user_id: currentUser.id,
+    data: state,
+    updated_at: new Date().toISOString()
+  });
+  if (error) console.error("Save failed:", error);
 }
 
 // ---------- Helpers ----------
 const HABIT_XP = 10;
 const TASK_XP = 5;
 
-// Local date as YYYY-MM-DD (avoids timezone bugs)
 function dateKey(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -35,7 +71,6 @@ function newId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
-// Counts consecutive days (ending today, or yesterday if today isn't done yet)
 function countStreak(daySet) {
   const d = new Date();
   if (!daySet.has(dateKey(d))) d.setDate(d.getDate() - 1);
@@ -54,7 +89,6 @@ function overallStreak() {
   return countStreak(days);
 }
 
-// Level gets harder each time: 100 XP, then 150, then 200...
 function levelInfo(xp) {
   let level = 1;
   let remaining = xp;
@@ -157,18 +191,15 @@ function renderEmpty(list, message) {
 function render() {
   const t = today();
 
-  // Date + streak
   document.getElementById("today-date").textContent =
     new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
   document.getElementById("streak-count").textContent = overallStreak();
 
-  // Level + XP bar
   const info = levelInfo(state.xp);
   document.getElementById("level-label").textContent = "Level " + info.level;
   document.getElementById("xp-text").textContent = `${info.remaining} / ${info.need} XP`;
   document.getElementById("xp-fill").style.width = (info.remaining / info.need) * 100 + "%";
 
-  // Habits
   const habitList = document.getElementById("habit-list");
   habitList.innerHTML = "";
   if (state.habits.length === 0) renderEmpty(habitList, "No habits yet. Add your first one above.");
@@ -183,7 +214,6 @@ function render() {
     }));
   });
 
-  // Tasks: show unfinished tasks, plus ones finished today
   const taskList = document.getElementById("task-list");
   taskList.innerHTML = "";
   const visible = state.tasks.filter(x => !x.done || x.doneDate === t);
@@ -199,7 +229,129 @@ function render() {
   });
 }
 
-// ---------- Forms ----------
+// ---------- Screens ----------
+const authView = document.getElementById("auth-view");
+const appView = document.getElementById("app-view");
+const authHome = document.getElementById("auth-home");
+const signupForm = document.getElementById("signup-form");
+const loginForm = document.getElementById("login-form");
+
+function showAuthPart(part) {
+  authHome.classList.toggle("hidden", part !== "home");
+  signupForm.classList.toggle("hidden", part !== "signup");
+  loginForm.classList.toggle("hidden", part !== "login");
+  document.getElementById("signup-error").textContent = "";
+  document.getElementById("login-error").textContent = "";
+}
+
+function showAuth() {
+  appView.classList.add("hidden");
+  authView.classList.remove("hidden");
+  showAuthPart("home");
+}
+
+async function enterApp(user) {
+  currentUser = user;
+  await loadCloud();
+  document.getElementById("user-label").textContent = user.email.split("@")[0];
+  authView.classList.add("hidden");
+  appView.classList.remove("hidden");
+  render();
+}
+
+document.getElementById("go-signup").addEventListener("click", () => showAuthPart("signup"));
+document.getElementById("go-login").addEventListener("click", () => showAuthPart("login"));
+document.querySelectorAll("[data-back]").forEach(b =>
+  b.addEventListener("click", () => showAuthPart("home"))
+);
+
+// ---------- Sign up ----------
+signupForm.addEventListener("submit", async e => {
+  e.preventDefault();
+  const errorBox = document.getElementById("signup-error");
+  const username = document.getElementById("signup-username").value.trim();
+  const password = document.getElementById("signup-password").value;
+  const confirm = document.getElementById("signup-confirm").value;
+  errorBox.textContent = "";
+
+  if (!validUsername(username)) {
+    errorBox.textContent = "Username must be 3-20 characters: letters, numbers, or underscores.";
+    return;
+  }
+  if (password.length < 6) {
+    errorBox.textContent = "Password must be at least 6 characters.";
+    return;
+  }
+  if (password !== confirm) {
+    errorBox.textContent = "Passwords don't match.";
+    return;
+  }
+
+  const button = signupForm.querySelector(".btn");
+  button.disabled = true;
+
+  const { data, error } = await db.auth.signUp({
+    email: fakeEmail(username),
+    password
+  });
+
+  button.disabled = false;
+
+  if (error) {
+    if (error.message.toLowerCase().includes("already registered")) {
+      errorBox.textContent = "That username is taken. Try another.";
+    } else {
+      errorBox.textContent = error.message;
+    }
+    return;
+  }
+
+  if (!data.session) {
+    errorBox.textContent = "Account created, but email confirmation is still turned on in Supabase. Turn it off and try again.";
+    return;
+  }
+
+  await enterApp(data.user);
+});
+
+// ---------- Log in ----------
+loginForm.addEventListener("submit", async e => {
+  e.preventDefault();
+  const errorBox = document.getElementById("login-error");
+  const username = document.getElementById("login-username").value.trim();
+  const password = document.getElementById("login-password").value;
+  errorBox.textContent = "";
+
+  const button = loginForm.querySelector(".btn");
+  button.disabled = true;
+
+  const { data, error } = await db.auth.signInWithPassword({
+    email: fakeEmail(username),
+    password
+  });
+
+  button.disabled = false;
+
+  if (error) {
+    errorBox.textContent = "Wrong username or password.";
+    return;
+  }
+
+  await enterApp(data.user);
+});
+
+// ---------- Log out ----------
+document.getElementById("logout-btn").addEventListener("click", async () => {
+  await db.auth.signOut();
+  currentUser = null;
+  canSave = false;
+  state = { xp: 0, habits: [], tasks: [] };
+  signupForm.reset();
+  loginForm.reset();
+  showAuth();
+});
+
+// ---------- Habit and task forms ----------
 document.getElementById("habit-form").addEventListener("submit", e => {
   e.preventDefault();
   const input = document.getElementById("habit-input");
@@ -216,4 +368,14 @@ document.getElementById("task-form").addEventListener("submit", e => {
   input.value = "";
 });
 
-render();
+// ---------- Start: are they already logged in? ----------
+(async function init() {
+  const { data } = await db.auth.getSession();
+  if (data.session) {
+    await enterApp(data.session.user);
+  } else {
+    showAuth();
+  }
+})();
+
+// END OF FILE
