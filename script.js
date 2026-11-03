@@ -211,4 +211,9 @@ document.getElementById("habit-form").addEventListener("submit", e => {
 document.getElementById("task-form").addEventListener("submit", e => {
   e.preventDefault();
   const input = document.getElementById("task-input");
-  const name =
+  const name = input.value.trim();
+  if (name) addTask(name);
+  input.value = "";
+});
+
+render();
