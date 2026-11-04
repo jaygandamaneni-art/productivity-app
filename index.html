@@ -12,14 +12,17 @@
   <main class="auth hidden" id="auth-view">
     <h1>Daily Quest</h1>
     <p class="tagline">Build habits. Earn XP. Level up.</p>
+    <p class="auth-success" id="auth-notice"></p>
 
     <div class="card auth-card" id="auth-home">
       <button class="btn" id="go-signup">Sign up</button>
       <button class="btn secondary" id="go-login">Log in</button>
     </div>
 
+    <!-- Sign up -->
     <form class="card auth-card hidden" id="signup-form">
       <h2>Create your account</h2>
+      <input type="email" id="signup-email" placeholder="Email" autocomplete="email" required>
       <input type="text" id="signup-username" placeholder="Choose a username" autocomplete="username" required>
       <input type="password" id="signup-password" placeholder="Password (6+ characters)" autocomplete="new-password" required>
       <input type="password" id="signup-confirm" placeholder="Confirm password" autocomplete="new-password" required>
@@ -28,13 +31,47 @@
       <button type="button" class="link" data-back>Back</button>
     </form>
 
+    <!-- Log in -->
     <form class="card auth-card hidden" id="login-form">
       <h2>Welcome back</h2>
-      <input type="text" id="login-username" placeholder="Username" autocomplete="username" required>
+      <input type="text" id="login-identifier" placeholder="Email or username" autocomplete="username" required>
       <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" required>
       <p class="auth-error" id="login-error"></p>
       <button type="submit" class="btn">Log in</button>
+      <div class="auth-links">
+        <button type="button" class="link hidden" id="go-forgot">Forgot my password</button>
+        <button type="button" class="link" data-back>Back</button>
+      </div>
+    </form>
+
+    <!-- Forgot password, step 1: ask for email -->
+    <form class="card auth-card hidden" id="forgot-form">
+      <h2>Reset your password</h2>
+      <p class="hint">Enter your email and we'll send you a code.</p>
+      <input type="email" id="forgot-email" placeholder="Email" autocomplete="email" required>
+      <p class="auth-error" id="forgot-error"></p>
+      <button type="submit" class="btn">Send code</button>
       <button type="button" class="link" data-back>Back</button>
+    </form>
+
+    <!-- Forgot password, step 2: email + code -->
+    <form class="card auth-card hidden" id="code-form">
+      <h2>Enter your code</h2>
+      <p class="hint">Check your email (and spam folder) for the code.</p>
+      <input type="email" id="code-email" placeholder="Email" autocomplete="email" required>
+      <input type="text" id="code-input" placeholder="Code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" required>
+      <p class="auth-error" id="code-error"></p>
+      <button type="submit" class="btn">Verify code</button>
+      <button type="button" class="link" data-back>Back</button>
+    </form>
+
+    <!-- Forgot password, step 3: new password -->
+    <form class="card auth-card hidden" id="newpass-form">
+      <h2>Choose a new password</h2>
+      <input type="password" id="newpass" placeholder="New password (6+ characters)" autocomplete="new-password" required>
+      <input type="password" id="newpass-confirm" placeholder="Confirm new password" autocomplete="new-password" required>
+      <p class="auth-error" id="newpass-error"></p>
+      <button type="submit" class="btn">Save new password</button>
     </form>
   </main>
 
