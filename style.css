@@ -413,3 +413,7 @@ button {
   80%  { opacity: 1; transform: translate(-50%, -6px); }
   100% { opacity: 0; transform: translate(-50%, -16px); }
 }
+
+.auth-success { color: var(--good); font-size: 0.9rem; }
+.auth-success:empty { display: none; }
+.auth-links { display: flex; justify-content: space-between; align-items: center; }
