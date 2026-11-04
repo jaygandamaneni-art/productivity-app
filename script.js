@@ -3,21 +3,18 @@ const SUPABASE_URL = "https://vvknwuifopgrabkpxxtm.supabase.co";
 const SUPABASE_KEY = "sb_publishable_ntqSxScC5JRnKEERIjmFxQ_IcZkLghb";
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Usernames become a fake email behind the scenes (users never see it)
-const AUTH_DOMAIN = "dailyquest.app";
-
-function fakeEmail(username) {
-  return username.toLowerCase() + "@" + AUTH_DOMAIN;
-}
-
 function validUsername(u) {
   return /^[a-zA-Z0-9_]{3,20}$/.test(u);
+}
+
+function validEmail(e) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 }
 
 // ---------- State ----------
 // habits: [{ id, name, freq: "daily"|"weekly"|"monthly", days: [0-6], dates: [1-31], createdOn }]
 // tasks:  [{ id, name, doneDate }]
-// log:    { "YYYY-MM-DD": [{ id, name, kind }] }  <- what got finished each day (calendar uses this)
+// log:    { "YYYY-MM-DD": [{ id, name, kind }] }  <- what got finished each day
 function emptyState() {
   return { xp: 0, habits: [], tasks: [], log: {} };
 }
@@ -45,7 +42,6 @@ async function loadCloud() {
   if (saved && saved.habits && saved.tasks && saved.log) {
     state = saved;
   } else {
-    // new account, or old data from before this update: start fresh
     state = emptyState();
   }
   canSave = true;
@@ -114,7 +110,10 @@ function isDue(habit, date) {
   if (dateKey(date) < habit.createdOn) return false;
   if (habit.freq === "daily") return true;
   if (habit.freq === "weekly") return habit.days.includes(date.getDay());
-  if (habit.freq === "monthly") return habit.dates.includes(date.getDate());
+  if (habit.freq === "monthly") {
+    const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    return habit.dates.some(d => Math.min(d, lastDay) === date.getDate());
+  }
   return false;
 }
 
@@ -184,6 +183,18 @@ function toggleItem(kind, id) {
   render();
 }
 
+// Deleting something also undoes today's check-in (and its XP)
+function undoTodayCheckin(id, xp) {
+  const t = today();
+  const entries = state.log[t];
+  if (!entries) return;
+  const idx = entries.findIndex(e => e.id === id);
+  if (idx < 0) return;
+  entries.splice(idx, 1);
+  if (entries.length === 0) delete state.log[t];
+  removeXP(xp);
+}
+
 function addTask(name) {
   state.tasks.push({ id: newId(), name, doneDate: null });
   save();
@@ -191,6 +202,7 @@ function addTask(name) {
 }
 
 function deleteTask(id) {
+  undoTodayCheckin(id, TASK_XP);
   state.tasks = state.tasks.filter(x => x.id !== id);
   save();
   render();
@@ -199,7 +211,8 @@ function deleteTask(id) {
 function deleteHabit(id) {
   const h = state.habits.find(x => x.id === id);
   if (!h) return;
-  if (!confirm('Delete "' + h.name + '"? Your past check-ins stay on the calendar.')) return;
+  if (!confirm('Delete "' + h.name + '"? Past days stay on the calendar, but today\'s check-in (and its XP) will be undone.')) return;
+  undoTodayCheckin(id, HABIT_XP);
   state.habits = state.habits.filter(x => x.id !== id);
   save();
   render();
@@ -418,13 +431,25 @@ const appView = document.getElementById("app-view");
 const authHome = document.getElementById("auth-home");
 const signupForm = document.getElementById("signup-form");
 const loginForm = document.getElementById("login-form");
+const forgotForm = document.getElementById("forgot-form");
+const codeForm = document.getElementById("code-form");
+const newpassForm = document.getElementById("newpass-form");
 
-function showAuthPart(part) {
-  authHome.classList.toggle("hidden", part !== "home");
-  signupForm.classList.toggle("hidden", part !== "signup");
-  loginForm.classList.toggle("hidden", part !== "login");
-  document.getElementById("signup-error").textContent = "";
-  document.getElementById("login-error").textContent = "";
+const authParts = {
+  home: authHome,
+  signup: signupForm,
+  login: loginForm,
+  forgot: forgotForm,
+  code: codeForm,
+  newpass: newpassForm
+};
+
+function showAuthPart(part, notice = "") {
+  Object.entries(authParts).forEach(([name, el]) =>
+    el.classList.toggle("hidden", name !== part)
+  );
+  document.querySelectorAll(".auth-error").forEach(el => (el.textContent = ""));
+  document.getElementById("auth-notice").textContent = notice;
 }
 
 function showAuth() {
@@ -436,7 +461,9 @@ function showAuth() {
 async function enterApp(user) {
   currentUser = user;
   await loadCloud();
-  document.getElementById("user-label").textContent = user.email.split("@")[0];
+  const meta = user.user_metadata || {};
+  document.getElementById("user-label").textContent =
+    meta.username || user.email.split("@")[0];
   authView.classList.add("hidden");
   appView.classList.remove("hidden");
   render();
@@ -444,6 +471,7 @@ async function enterApp(user) {
 
 document.getElementById("go-signup").addEventListener("click", () => showAuthPart("signup"));
 document.getElementById("go-login").addEventListener("click", () => showAuthPart("login"));
+document.getElementById("go-forgot").addEventListener("click", () => showAuthPart("forgot"));
 document.querySelectorAll("[data-back]").forEach(b =>
   b.addEventListener("click", () => showAuthPart("home"))
 );
@@ -452,11 +480,16 @@ document.querySelectorAll("[data-back]").forEach(b =>
 signupForm.addEventListener("submit", async e => {
   e.preventDefault();
   const errorBox = document.getElementById("signup-error");
+  const email = document.getElementById("signup-email").value.trim().toLowerCase();
   const username = document.getElementById("signup-username").value.trim();
   const password = document.getElementById("signup-password").value;
   const confirmPw = document.getElementById("signup-confirm").value;
   errorBox.textContent = "";
 
+  if (!validEmail(email)) {
+    errorBox.textContent = "Enter a valid email address.";
+    return;
+  }
   if (!validUsername(username)) {
     errorBox.textContent = "Username must be 3-20 characters: letters, numbers, or underscores.";
     return;
@@ -473,16 +506,30 @@ signupForm.addEventListener("submit", async e => {
   const button = signupForm.querySelector(".btn");
   button.disabled = true;
 
+  const { data: free, error: checkError } = await db.rpc("username_available", { u: username });
+  if (checkError) {
+    console.error(checkError);
+    button.disabled = false;
+    errorBox.textContent = "Something went wrong. Try again.";
+    return;
+  }
+  if (!free) {
+    button.disabled = false;
+    errorBox.textContent = "That username is taken. Try another.";
+    return;
+  }
+
   const { data, error } = await db.auth.signUp({
-    email: fakeEmail(username),
-    password
+    email,
+    password,
+    options: { data: { username } }
   });
 
   button.disabled = false;
 
   if (error) {
     if (error.message.toLowerCase().includes("already registered")) {
-      errorBox.textContent = "That username is taken. Try another.";
+      errorBox.textContent = "That email already has an account. Try logging in.";
     } else {
       errorBox.textContent = error.message;
     }
@@ -490,37 +537,135 @@ signupForm.addEventListener("submit", async e => {
   }
 
   if (!data.session) {
-    errorBox.textContent = "Account created, but email confirmation is still turned on in Supabase. Turn it off and try again.";
+    showAuthPart("login", "Account created! Check your email to confirm it, then log in.");
     return;
   }
 
   await enterApp(data.user);
 });
 
-// ---------- Log in ----------
+// ---------- Log in (email OR username) ----------
 loginForm.addEventListener("submit", async e => {
   e.preventDefault();
   const errorBox = document.getElementById("login-error");
-  const username = document.getElementById("login-username").value.trim();
+  const identifier = document.getElementById("login-identifier").value.trim();
   const password = document.getElementById("login-password").value;
   errorBox.textContent = "";
 
   const button = loginForm.querySelector(".btn");
   button.disabled = true;
 
-  const { data, error } = await db.auth.signInWithPassword({
-    email: fakeEmail(username),
-    password
-  });
+  let email = "";
+  if (identifier.includes("@")) {
+    email = identifier.toLowerCase();
+  } else {
+    const { data: found } = await db.rpc("email_for_username", { u: identifier });
+    email = found || "";
+  }
+
+  if (!email) {
+    button.disabled = false;
+    errorBox.textContent = "Wrong email/username or password.";
+    return;
+  }
+
+  const { data, error } = await db.auth.signInWithPassword({ email, password });
 
   button.disabled = false;
 
   if (error) {
-    errorBox.textContent = "Wrong username or password.";
+    errorBox.textContent = "Wrong email/username or password.";
     return;
   }
 
   await enterApp(data.user);
+});
+
+// ---------- Forgot password, step 1: send the code ----------
+forgotForm.addEventListener("submit", async e => {
+  e.preventDefault();
+  const errorBox = document.getElementById("forgot-error");
+  const email = document.getElementById("forgot-email").value.trim().toLowerCase();
+  errorBox.textContent = "";
+
+  if (!validEmail(email)) {
+    errorBox.textContent = "Enter a valid email address.";
+    return;
+  }
+
+  const button = forgotForm.querySelector(".btn");
+  button.disabled = true;
+
+  const { error } = await db.auth.resetPasswordForEmail(email);
+
+  button.disabled = false;
+
+  if (error) {
+    errorBox.textContent = error.message;
+    return;
+  }
+
+  document.getElementById("code-email").value = email;
+  showAuthPart("code", "If that email has an account, a code is on its way.");
+});
+
+// ---------- Forgot password, step 2: check the code ----------
+codeForm.addEventListener("submit", async e => {
+  e.preventDefault();
+  const errorBox = document.getElementById("code-error");
+  const email = document.getElementById("code-email").value.trim().toLowerCase();
+  const token = document.getElementById("code-input").value.trim();
+  errorBox.textContent = "";
+
+  const button = codeForm.querySelector(".btn");
+  button.disabled = true;
+
+  const { error } = await db.auth.verifyOtp({ email, token, type: "recovery" });
+
+  button.disabled = false;
+
+  if (error) {
+    errorBox.textContent = "That code is wrong or expired.";
+    return;
+  }
+
+  showAuthPart("newpass");
+});
+
+// ---------- Forgot password, step 3: set the new password ----------
+newpassForm.addEventListener("submit", async e => {
+  e.preventDefault();
+  const errorBox = document.getElementById("newpass-error");
+  const pw = document.getElementById("newpass").value;
+  const confirmPw = document.getElementById("newpass-confirm").value;
+  errorBox.textContent = "";
+
+  if (pw.length < 6) {
+    errorBox.textContent = "Password must be at least 6 characters.";
+    return;
+  }
+  if (pw !== confirmPw) {
+    errorBox.textContent = "Passwords don't match.";
+    return;
+  }
+
+  const button = newpassForm.querySelector(".btn");
+  button.disabled = true;
+
+  const { error } = await db.auth.updateUser({ password: pw });
+
+  if (error) {
+    button.disabled = false;
+    errorBox.textContent = error.message;
+    return;
+  }
+
+  await db.auth.signOut();
+  button.disabled = false;
+  forgotForm.reset();
+  codeForm.reset();
+  newpassForm.reset();
+  showAuthPart("home", "Password updated! Log in with your new password.");
 });
 
 // ---------- Log out ----------
