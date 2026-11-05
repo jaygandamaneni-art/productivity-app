@@ -302,7 +302,34 @@ function renderToday() {
     }));
   });
 
-  if (count === 0) renderEmpty(list, "Nothing today. Add a task above or create a habit.");
+  if (count === 0) renderEmpty(list, state.habits.length === 0
+    ? "Welcome! Open the Habits tab and tap a starter habit to begin."
+    : "Nothing scheduled today. Add a task above.");
+}
+
+const STARTERS = ["Drink water", "Read 10 minutes", "Exercise", "Stretch", "Write in a journal", "Go to bed on time"];
+
+function renderQuickstart() {
+  const box = document.getElementById("quickstart");
+  const chips = document.getElementById("quickstart-chips");
+  chips.innerHTML = "";
+  const have = new Set(state.habits.map(h => h.name));
+  const options = STARTERS.filter(n => !have.has(n));
+  const show = state.habits.length < 3 && options.length > 0;
+  box.classList.toggle("hidden", !show);
+  if (!show) return;
+  options.forEach(name => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip";
+    chip.textContent = "+ " + name;
+    chip.addEventListener("click", () => {
+      state.habits.push({ id: newId(), name, freq: "daily", days: [], dates: [], createdOn: today() });
+      save();
+      render();
+    });
+    chips.append(chip);
+  });
 }
 
 function renderHabits() {
@@ -335,6 +362,7 @@ function render() {
 
   renderToday();
   renderHabits();
+  renderQuickstart();
   renderCalendar();
 }
 
