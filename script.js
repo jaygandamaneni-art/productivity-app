@@ -17,16 +17,13 @@ function passwordProblem(pw) {
 }
 
 // ---------- State ----------
-// habits: [{ id, name, freq: "daily"|"weekly"|"monthly", days: [0-6], dates: [1-31], createdOn }]
-// tasks:  [{ id, name, doneDate }]
-// log:    { "YYYY-MM-DD": [{ id, name, kind }] }  <- what got finished each day
 function emptyState() {
   return { xp: 0, habits: [], tasks: [], log: {} };
 }
 
 let state = emptyState();
 let currentUser = null;
-let canSave = false; // stays false if loading failed, so we never overwrite cloud data
+let canSave = false;
 
 async function loadCloud() {
   const { data, error } = await db
@@ -110,7 +107,6 @@ function levelInfo(xp) {
   return { level, remaining, need };
 }
 
-// Is this habit scheduled on the given date?
 function isDue(habit, date) {
   if (dateKey(date) < habit.createdOn) return false;
   if (habit.freq === "daily") return true;
@@ -169,13 +165,11 @@ function toggleItem(kind, id) {
   const task = kind === "task" ? state.tasks.find(x => x.id === id) : null;
 
   if (idx >= 0) {
-    // uncheck
     entries.splice(idx, 1);
     if (entries.length === 0) delete state.log[t];
     removeXP(xp);
     if (task) task.doneDate = null;
   } else {
-    // check
     const source = kind === "habit"
       ? state.habits.find(h => h.id === id)
       : task;
@@ -188,7 +182,6 @@ function toggleItem(kind, id) {
   render();
 }
 
-// Deleting something also undoes today's check-in (and its XP)
 function undoTodayCheckin(id, xp) {
   const t = today();
   const entries = state.log[t];
@@ -224,7 +217,7 @@ function deleteHabit(id) {
 }
 
 // ---------- Rendering ----------
-function makeItem({ text, sub, badge, done, onToggle, onDelete }) {
+function makeItem({ text, sub, badge, done, onToggle, onEdit, onDelete }) {
   const li = document.createElement("li");
   li.className = "item" + (done ? " done" : "");
 
@@ -252,6 +245,14 @@ function makeItem({ text, sub, badge, done, onToggle, onDelete }) {
     b.className = "badge";
     b.textContent = badge;
     li.append(b);
+  }
+
+  if (onEdit) {
+    const edit = document.createElement("button");
+    edit.className = "item-edit";
+    edit.textContent = "✎";
+    edit.addEventListener("click", onEdit);
+    li.append(edit);
   }
 
   if (onDelete) {
@@ -291,7 +292,7 @@ function renderToday() {
   });
 
   state.tasks.forEach(x => {
-    if (x.doneDate && x.doneDate !== t) return; // finished on an earlier day
+    if (x.doneDate && x.doneDate !== t) return;
     count++;
     list.append(makeItem({
       text: x.name,
@@ -316,6 +317,7 @@ function renderHabits() {
     list.append(makeItem({
       text: h.name,
       sub: describeSchedule(h) + " · done " + n + (n === 1 ? " time" : " times"),
+      onEdit: () => openModal(h.name, h),
       onDelete: () => deleteHabit(h.id)
     }));
   });
@@ -333,22 +335,92 @@ function render() {
 
   renderToday();
   renderHabits();
+  renderCalendar();
 }
 
 // ---------- Tabs ----------
 document.querySelectorAll(".tab").forEach(btn => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b === btn));
-    document.getElementById("tab-today").classList.toggle("hidden", btn.dataset.tab !== "today");
-    document.getElementById("tab-habits").classList.toggle("hidden", btn.dataset.tab !== "habits");
+    ["today", "habits", "calendar"].forEach(name =>
+      document.getElementById("tab-" + name).classList.toggle("hidden", btn.dataset.tab !== name)
+    );
   });
 });
 
-// ---------- Schedule popup ----------
+// ---------- Calendar ----------
+let calMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let calSelected = today();
+
+function renderCalendar() {
+  const grid = document.getElementById("cal-grid");
+  grid.innerHTML = "";
+  document.getElementById("cal-title").textContent =
+    calMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+
+  WEEKDAYS.forEach(w => {
+    const h = document.createElement("div");
+    h.className = "cal-dow";
+    h.textContent = w;
+    grid.append(h);
+  });
+
+  const year = calMonth.getFullYear();
+  const month = calMonth.getMonth();
+  for (let i = 0; i < calMonth.getDay(); i++) grid.append(document.createElement("div"));
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  for (let day = 1; day <= daysInMonth; day++) {
+    const key = dateKey(new Date(year, month, day));
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "cal-day";
+    if (state.log[key] && state.log[key].length > 0) btn.classList.add("done");
+    if (key === today()) btn.classList.add("today");
+    if (key === calSelected) btn.classList.add("selected");
+    btn.textContent = day;
+    btn.addEventListener("click", () => {
+      calSelected = key;
+      renderCalendar();
+    });
+    grid.append(btn);
+  }
+
+  const entries = state.log[calSelected] || [];
+  const total = entries.reduce((n, e) => n + (e.kind === "habit" ? HABIT_XP : TASK_XP), 0);
+  const [y, m, d] = calSelected.split("-").map(Number);
+  document.getElementById("cal-detail-title").textContent =
+    new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }) +
+    (total > 0 ? " · +" + total + " XP" : "");
+
+  const list = document.getElementById("cal-detail-list");
+  list.innerHTML = "";
+  if (entries.length === 0) {
+    renderEmpty(list, "Nothing completed this day.");
+  } else {
+    entries.forEach(e => {
+      const xp = e.kind === "habit" ? HABIT_XP : TASK_XP;
+      list.append(makeItem({ text: e.name, badge: "+" + xp + " XP" }));
+    });
+  }
+}
+
+document.getElementById("cal-prev").addEventListener("click", () => {
+  calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1);
+  renderCalendar();
+});
+
+document.getElementById("cal-next").addEventListener("click", () => {
+  calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1);
+  renderCalendar();
+});
+
+// ---------- Schedule popup (create + edit) ----------
 const modal = document.getElementById("schedule-modal");
 const weekdayChips = document.getElementById("weekday-chips");
 const dateChips = document.getElementById("date-chips");
-let pending = { name: "", freq: "daily", days: new Set(), dates: new Set() };
+const modalName = document.getElementById("modal-name");
+let pending = { editId: null, freq: "daily", days: new Set(), dates: new Set() };
 
 function buildChips() {
   WEEKDAYS.forEach((label, i) => {
@@ -376,6 +448,15 @@ function buildChips() {
   }
 }
 
+function refreshChips() {
+  weekdayChips.querySelectorAll(".chip").forEach((chip, i) =>
+    chip.classList.toggle("on", pending.days.has(i))
+  );
+  dateChips.querySelectorAll(".chip").forEach((chip, i) =>
+    chip.classList.toggle("on", pending.dates.has(i + 1))
+  );
+}
+
 function setFreq(freq) {
   pending.freq = freq;
   document.querySelectorAll(".freq").forEach(b =>
@@ -386,11 +467,17 @@ function setFreq(freq) {
   document.getElementById("modal-error").textContent = "";
 }
 
-function openModal(name) {
-  pending = { name, freq: "daily", days: new Set(), dates: new Set() };
-  document.querySelectorAll(".chip").forEach(c => c.classList.remove("on"));
-  document.getElementById("modal-title").textContent = 'How often: "' + name + '"?';
-  setFreq("daily");
+function openModal(name, habit) {
+  pending = {
+    editId: habit ? habit.id : null,
+    freq: habit ? habit.freq : "daily",
+    days: new Set(habit ? habit.days : []),
+    dates: new Set(habit ? habit.dates : [])
+  };
+  modalName.value = name;
+  document.getElementById("modal-title").textContent = habit ? "Edit habit" : "New habit";
+  refreshChips();
+  setFreq(pending.freq);
   modal.classList.remove("hidden");
 }
 
@@ -406,6 +493,11 @@ document.getElementById("modal-cancel").addEventListener("click", closeModal);
 
 document.getElementById("modal-save").addEventListener("click", () => {
   const errorBox = document.getElementById("modal-error");
+  const name = modalName.value.trim();
+  if (!name) {
+    errorBox.textContent = "Give your habit a name.";
+    return;
+  }
   if (pending.freq === "weekly" && pending.days.size === 0) {
     errorBox.textContent = "Pick at least one day.";
     return;
@@ -415,16 +507,26 @@ document.getElementById("modal-save").addEventListener("click", () => {
     return;
   }
 
-  state.habits.push({
-    id: newId(),
-    name: pending.name,
-    freq: pending.freq,
-    days: [...pending.days],
-    dates: [...pending.dates],
-    createdOn: today()
-  });
+  if (pending.editId) {
+    const h = state.habits.find(x => x.id === pending.editId);
+    if (h) {
+      h.name = name;
+      h.freq = pending.freq;
+      h.days = [...pending.days];
+      h.dates = [...pending.dates];
+    }
+  } else {
+    state.habits.push({
+      id: newId(),
+      name,
+      freq: pending.freq,
+      days: [...pending.days],
+      dates: [...pending.dates],
+      createdOn: today()
+    });
+    document.getElementById("habit-input").value = "";
+  }
 
-  document.getElementById("habit-input").value = "";
   closeModal();
   save();
   render();
@@ -698,7 +800,7 @@ document.getElementById("task-form").addEventListener("submit", e => {
 document.getElementById("habit-form").addEventListener("submit", e => {
   e.preventDefault();
   const name = document.getElementById("habit-input").value.trim();
-  if (name) openModal(name); // the popup finishes adding it
+  if (name) openModal(name);
 });
 
 // ---------- Start: are they already logged in? ----------
