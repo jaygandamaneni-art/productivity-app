@@ -663,17 +663,11 @@ loginForm.addEventListener("submit", async e => {
   const button = loginForm.querySelector(".btn");
   button.disabled = true;
 
-  let email = "";
-  if (identifier.includes("@")) {
-    email = identifier.toLowerCase();
-  } else {
-    const { data: found } = await db.rpc("email_for_username", { u: identifier });
-    email = found || "";
-  }
+  const email = identifier.toLowerCase();
 
   if (!email) {
     button.disabled = false;
-    errorBox.textContent = "Wrong email/username or password.";
+    errorBox.textContent = "Wrong email or password.";
     return;
   }
 
@@ -682,7 +676,7 @@ loginForm.addEventListener("submit", async e => {
   button.disabled = false;
 
   if (error) {
-    errorBox.textContent = "Wrong email/username or password.";
+    errorBox.textContent = "Wrong email or password.";
     return;
   }
 
