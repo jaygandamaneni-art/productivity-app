@@ -24,7 +24,7 @@
       <h2>Create your account</h2>
       <input type="email" id="signup-email" placeholder="Email" autocomplete="email" required>
       <input type="text" id="signup-username" placeholder="Choose a username" autocomplete="username" required>
-      <input type="password" id="signup-password" placeholder="Password (6+ characters)" autocomplete="new-password" required>
+      <input type="password" id="signup-password" placeholder="Password: 6+, capital, number, symbol" autocomplete="new-password" required>
       <input type="password" id="signup-confirm" placeholder="Confirm password" autocomplete="new-password" required>
       <p class="auth-error" id="signup-error"></p>
       <button type="submit" class="btn">Create account</button>
@@ -68,7 +68,7 @@
     <!-- Forgot password, step 3: new password -->
     <form class="card auth-card hidden" id="newpass-form">
       <h2>Choose a new password</h2>
-      <input type="password" id="newpass" placeholder="New password (6+ characters)" autocomplete="new-password" required>
+      <input type="password" id="newpass" placeholder="New password: 6+, capital, number, symbol" autocomplete="new-password" required>
       <input type="password" id="newpass-confirm" placeholder="Confirm new password" autocomplete="new-password" required>
       <p class="auth-error" id="newpass-error"></p>
       <button type="submit" class="btn">Save new password</button>
@@ -100,6 +100,7 @@
     <nav class="tabs">
       <button class="tab active" data-tab="today">Today</button>
       <button class="tab" data-tab="habits">Habits</button>
+      <button class="tab" data-tab="calendar">Calendar</button>
     </nav>
 
     <!-- TODAY TAB -->
@@ -127,12 +128,29 @@
       </div>
     </section>
 
+    <!-- CALENDAR TAB -->
+    <section id="tab-calendar" class="hidden">
+      <div class="card">
+        <div class="cal-head">
+          <button type="button" class="cal-nav" id="cal-prev">‹</button>
+          <h2 id="cal-title"></h2>
+          <button type="button" class="cal-nav" id="cal-next">›</button>
+        </div>
+        <div class="cal-grid" id="cal-grid"></div>
+      </div>
+      <div class="card">
+        <h2 id="cal-detail-title"></h2>
+        <ul id="cal-detail-list" class="list"></ul>
+      </div>
+    </section>
+
   </main>
 
   <!-- ========== HABIT SCHEDULE POPUP ========== -->
   <div class="modal hidden" id="schedule-modal">
     <div class="modal-box card">
-      <h2 id="modal-title">How often?</h2>
+      <h2 id="modal-title">New habit</h2>
+      <input type="text" id="modal-name" placeholder="Habit name" maxlength="60">
 
       <div class="freq-row">
         <button type="button" class="freq on" data-freq="daily">Daily</button>
