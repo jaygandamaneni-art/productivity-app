@@ -380,7 +380,37 @@ document.querySelectorAll(".tab").forEach(btn => {
 let calMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let calSelected = today();
 
+function renderStats() {
+  const box = document.getElementById("cal-stats");
+  const days = Object.keys(state.log).filter(k => state.log[k].length > 0).sort();
+  const total = days.reduce((n, k) => n + state.log[k].length, 0);
+
+  let best = 0, run = 0, prev = null;
+  days.forEach(k => {
+    const [y, m, d] = k.split("-").map(Number);
+    const t = new Date(y, m - 1, d, 12).getTime();
+    run = prev !== null && Math.round((t - prev) / 86400000) === 1 ? run + 1 : 1;
+    if (run > best) best = run;
+    prev = t;
+  });
+
+  const stats = [[best, "Best streak"], [total, "Check-ins"], [days.length, "Active days"]];
+  box.innerHTML = "";
+  stats.forEach(([num, label]) => {
+    const cell = document.createElement("div");
+    const n = document.createElement("div");
+    n.className = "stat-num";
+    n.textContent = num;
+    const l = document.createElement("div");
+    l.className = "stat-label";
+    l.textContent = label;
+    cell.append(n, l);
+    box.append(cell);
+  });
+}
+
 function renderCalendar() {
+  renderStats();
   const grid = document.getElementById("cal-grid");
   grid.innerHTML = "";
   document.getElementById("cal-title").textContent =
