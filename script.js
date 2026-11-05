@@ -11,6 +11,11 @@ function validEmail(e) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 }
 
+function passwordProblem(pw) {
+  const ok = pw.length >= 6 && /[A-Z]/.test(pw) && /[0-9]/.test(pw) && /[^A-Za-z0-9]/.test(pw);
+  return ok ? "" : "Password needs 6+ characters, an uppercase letter, a number, and a special character (like ! or @).";
+}
+
 // ---------- State ----------
 // habits: [{ id, name, freq: "daily"|"weekly"|"monthly", days: [0-6], dates: [1-31], createdOn }]
 // tasks:  [{ id, name, doneDate }]
@@ -494,8 +499,9 @@ signupForm.addEventListener("submit", async e => {
     errorBox.textContent = "Username must be 3-20 characters: letters, numbers, or underscores.";
     return;
   }
-  if (password.length < 6) {
-    errorBox.textContent = "Password must be at least 6 characters.";
+  const pwProblem = passwordProblem(password);
+  if (pwProblem) {
+    errorBox.textContent = pwProblem;
     return;
   }
   if (password !== confirmPw) {
@@ -640,8 +646,9 @@ newpassForm.addEventListener("submit", async e => {
   const confirmPw = document.getElementById("newpass-confirm").value;
   errorBox.textContent = "";
 
-  if (pw.length < 6) {
-    errorBox.textContent = "Password must be at least 6 characters.";
+  const pwProblem = passwordProblem(pw);
+  if (pwProblem) {
+    errorBox.textContent = pwProblem;
     return;
   }
   if (pw !== confirmPw) {
