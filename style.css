@@ -417,3 +417,140 @@ button {
 .auth-success { color: var(--good); font-size: 0.9rem; }
 .auth-success:empty { display: none; }
 .auth-links { display: flex; justify-content: space-between; align-items: center; }
+
+/* ---------- Calendar ---------- */
+#tab-calendar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.cal-head h2 { margin: 0; }
+
+.cal-nav {
+  background: var(--card-2);
+  color: var(--text);
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 1.2rem;
+}
+
+.cal-nav:hover { background: var(--accent); }
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.cal-dow {
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.cal-day {
+  aspect-ratio: 1;
+  background: var(--card-2);
+  color: var(--text);
+  border: 2px solid transparent;
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+
+.cal-day.done { background: var(--accent); color: white; }
+.cal-day.today { border-color: var(--fire); }
+.cal-day.selected { outline: 2px solid var(--good); outline-offset: 2px; }
+
+/* ---------- Calendar ---------- */
+#tab-calendar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.cal-head h2 { margin: 0; }
+
+.cal-nav {
+  background: var(--card-2);
+  color: var(--text);
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 1.2rem;
+}
+
+.cal-nav:hover { background: var(--accent); }
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.cal-dow {
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.cal-day {
+  aspect-ratio: 1;
+  background: var(--card-2);
+  color: var(--text);
+  border: 2px solid transparent;
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+
+.cal-day.done { background: var(--accent); color: white; }
+.cal-day.today { border-color: var(--fire); }
+.cal-day.selected { outline: 2px solid var(--good); outline-offset: 2px; }
+
+/* ---------- Edit button + popup name box ---------- */
+.item-edit {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 1.1rem;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+.item-edit:hover { color: var(--accent); }
+
+.modal-box {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-box input {
+  background: var(--card-2);
+  border: 2px solid transparent;
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 1rem;
+  outline: none;
+}
+
+.modal-box input:focus { border-color: var(--accent); }
