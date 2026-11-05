@@ -307,7 +307,7 @@ function renderToday() {
     : "Nothing scheduled today. Add a task above.");
 }
 
-const STARTERS = ["Drink water", "Read 10 minutes", "Exercise", "Stretch", "Write in a journal", "Go to bed on time"];
+const STARTERS = ["Study for 1 hour", "Review class notes", "Drink water", "Exercise", "Sleep by midnight", "Plan tomorrow"];
 
 function renderQuickstart() {
   const box = document.getElementById("quickstart");
