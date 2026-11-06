@@ -176,6 +176,7 @@ function toggleItem(kind, id) {
     if (!source) return;
     entries.push({ id, name: source.name, kind });
     awardXP(xp);
+    checkTrophies();
     if (task) task.doneDate = t;
   }
   save();
@@ -350,6 +351,60 @@ function renderHabits() {
   });
 }
 
+const TROPHIES = [
+  { id: "first", icon: "🌱", name: "First Step", desc: "Check off your first item", test: s => s.total >= 1 },
+  { id: "ten", icon: "🔥", name: "Warming Up", desc: "10 check-ins", test: s => s.total >= 10 },
+  { id: "hundred", icon: "💯", name: "Centurion", desc: "100 check-ins", test: s => s.total >= 100 },
+  { id: "streak3", icon: "⚡", name: "On a Roll", desc: "3-day streak", test: s => s.streak >= 3 },
+  { id: "streak7", icon: "🗓️", name: "Week Warrior", desc: "7-day streak", test: s => s.streak >= 7 },
+  { id: "streak30", icon: "👑", name: "Unstoppable", desc: "30-day streak", test: s => s.streak >= 30 },
+  { id: "level5", icon: "🚀", name: "Level 5", desc: "Reach level 5", test: s => s.level >= 5 },
+  { id: "perfect", icon: "🌟", name: "Perfect Day", desc: "Finish 3+ habits due today", test: s => s.perfect }
+];
+
+function trophyStats() {
+  const total = Object.values(state.log).reduce((n, a) => n + a.length, 0);
+  const doneIds = new Set((state.log[today()] || []).map(e => e.id));
+  const due = state.habits.filter(h => isDue(h, new Date()));
+  return {
+    total,
+    streak: overallStreak(),
+    level: levelInfo(state.xp).level,
+    perfect: due.length >= 3 && due.every(h => doneIds.has(h.id))
+  };
+}
+
+function checkTrophies() {
+  if (!state.trophies) state.trophies = [];
+  const stats = trophyStats();
+  let delay = 1300;
+  TROPHIES.forEach(t => {
+    if (!state.trophies.includes(t.id) && t.test(stats)) {
+      state.trophies.push(t.id);
+      setTimeout(() => showToast(t.icon + " " + t.name + " unlocked!", true), delay);
+      delay += 1700;
+    }
+  });
+}
+
+function renderTrophies() {
+  const unlocked = new Set(state.trophies || []);
+  document.getElementById("trophy-hint").textContent =
+    unlocked.size + " of " + TROPHIES.length + " unlocked";
+  const list = document.getElementById("trophy-list");
+  list.innerHTML = "";
+  TROPHIES.forEach(t => {
+    const has = unlocked.has(t.id);
+    const li = makeItem({
+      text: (has ? t.icon : "🔒") + " " + t.name,
+      sub: t.desc,
+      badge: has ? "Unlocked" : ""
+    });
+    if (!has) li.style.opacity = "0.5";
+    list.append(li);
+  });
+}
+
 function render() {
   document.getElementById("today-date").textContent =
     new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
@@ -363,6 +418,7 @@ function render() {
   renderToday();
   renderHabits();
   renderQuickstart();
+  renderTrophies();
   renderCalendar();
 }
 
@@ -370,7 +426,7 @@ function render() {
 document.querySelectorAll(".tab").forEach(btn => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b === btn));
-    ["today", "habits", "calendar"].forEach(name =>
+    ["today", "habits", "calendar","trophies"].forEach(name =>
       document.getElementById("tab-" + name).classList.toggle("hidden", btn.dataset.tab !== name)
     );
   });
