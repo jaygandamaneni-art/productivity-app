@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Daily Quest</title>
-    <meta name="description" content="Daily Quest: a free habit tracker where you earn XP and level up for building habits.">
-  <meta property="og:title" content="Daily Quest">
+  <title>Taskova</title>
+  <meta name="description" content="Taskova: a free habit and task tracker where you earn XP and level up for building habits.">
+  <meta property="og:title" content="Taskova">
   <meta property="og:description" content="Build habits. Earn XP. Level up. A free habit and task tracker.">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
@@ -16,7 +16,10 @@
 
   <!-- ========== LOGIN / SIGN UP SCREEN ========== -->
   <main class="auth hidden" id="auth-view">
-    <h1>Daily Quest</h1>
+    <div>
+      <h1 class="brand">Taskova</h1>
+      <p class="byline">by jsg creations</p>
+    </div>
     <p class="tagline">Build habits. Earn XP. Level up.</p>
     <p class="auth-success" id="auth-notice"></p>
 
@@ -25,7 +28,6 @@
       <button class="btn secondary" id="go-login">Log in</button>
     </div>
 
-    <!-- Sign up -->
     <form class="card auth-card hidden" id="signup-form">
       <h2>Create your account</h2>
       <input type="email" id="signup-email" placeholder="Email" autocomplete="email" required>
@@ -37,9 +39,9 @@
       <button type="button" class="link" data-back>Back</button>
     </form>
 
-    <!-- Log in -->
     <form class="card auth-card hidden" id="login-form">
       <h2>Welcome back</h2>
+      <p class="hint">Log in with your email.</p>
       <input type="email" id="login-identifier" placeholder="Email" autocomplete="email" required>
       <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" required>
       <p class="auth-error" id="login-error"></p>
@@ -50,7 +52,6 @@
       </div>
     </form>
 
-    <!-- Forgot password, step 1: ask for email -->
     <form class="card auth-card hidden" id="forgot-form">
       <h2>Reset your password</h2>
       <p class="hint">Enter your email and we'll send you a code.</p>
@@ -60,7 +61,6 @@
       <button type="button" class="link" data-back>Back</button>
     </form>
 
-    <!-- Forgot password, step 2: email + code -->
     <form class="card auth-card hidden" id="code-form">
       <h2>Enter your code</h2>
       <p class="hint">Check your email (and spam folder) for the code.</p>
@@ -71,7 +71,6 @@
       <button type="button" class="link" data-back>Back</button>
     </form>
 
-    <!-- Forgot password, step 3: new password -->
     <form class="card auth-card hidden" id="newpass-form">
       <h2>Choose a new password</h2>
       <input type="password" id="newpass" placeholder="New password: 6+, capital, number, symbol" autocomplete="new-password" required>
@@ -87,7 +86,8 @@
     <header class="topbar">
       <div>
         <p class="date" id="today-date"></p>
-        <h1>Daily Quest</h1>
+        <h1 class="brand">Taskova</h1>
+        <p class="byline">by jsg creations</p>
       </div>
       <div class="topbar-right">
         <div class="streak">🔥 <span id="streak-count">0</span> day streak</div>
@@ -104,13 +104,12 @@
     </section>
 
     <nav class="tabs">
-      <button class="tab active" data-tab="today">Today</button>
-      <button class="tab" data-tab="habits">Habits</button>
-      <button class="tab" data-tab="calendar">Calendar</button>
-      <button class="tab" data-tab="trophies">Trophies</button>
+      <button class="tab active" data-tab="today"><span class="ti">✅</span>Today</button>
+      <button class="tab" data-tab="habits"><span class="ti">🎯</span>Habits</button>
+      <button class="tab" data-tab="calendar"><span class="ti">📅</span>Calendar</button>
+      <button class="tab" data-tab="trophies"><span class="ti">🏆</span>Trophies</button>
     </nav>
 
-    <!-- TODAY TAB -->
     <section id="tab-today">
       <div class="card">
         <h2>Today</h2>
@@ -122,7 +121,6 @@
       </div>
     </section>
 
-    <!-- HABITS TAB -->
     <section id="tab-habits" class="hidden">
       <div class="card">
         <h2>My habits</h2>
@@ -139,7 +137,6 @@
       </div>
     </section>
 
-       <!-- TROPHIES TAB -->
     <section id="tab-trophies" class="hidden">
       <div class="card">
         <h2>Trophies</h2>
@@ -147,8 +144,7 @@
         <ul id="trophy-list" class="list"></ul>
       </div>
     </section>
-  
-    <!-- CALENDAR TAB -->
+
     <section id="tab-calendar" class="hidden">
       <div class="card stats-row" id="cal-stats"></div>
       <div class="card">
