@@ -559,3 +559,4 @@ button {
 .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
 .stat-num { font-size: 1.6rem; font-weight: 700; color: var(--accent); }
 .stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.tab { font-size: 0.9rem; padding: 10px 4px; }
