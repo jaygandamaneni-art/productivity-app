@@ -6,7 +6,7 @@
   <title>Taskova</title>
   <meta name="description" content="Taskova: a free habit and task tracker where you earn XP and level up for building habits.">
   <meta property="og:title" content="Taskova">
-  <meta property="og:description" content="Build habits. Earn XP. Level up. A free habit and task tracker.">
+  <meta property="og:description" content="Make your to-do list feel like a game. Habits, tasks, focus timer, XP and trophies. Free.">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔥</text></svg>">
@@ -14,18 +14,28 @@
 </head>
 <body>
 
-  <!-- ========== LOGIN / SIGN UP SCREEN ========== -->
+  <!-- ========== LANDING / LOGIN / SIGN UP ========== -->
   <main class="auth hidden" id="auth-view">
     <div>
       <h1 class="brand">Taskova</h1>
       <p class="byline">by jsg creations</p>
     </div>
-    <p class="tagline">Build habits. Earn XP. Level up.</p>
     <p class="auth-success" id="auth-notice"></p>
 
-    <div class="card auth-card" id="auth-home">
-      <button class="btn" id="go-signup">Sign up</button>
-      <button class="btn secondary" id="go-login">Log in</button>
+    <div class="landing" id="auth-home">
+      <h2 class="hero">Make your to-do list feel like a game.</h2>
+      <p class="tagline">Build habits, finish tasks, and earn XP. Free.</p>
+      <div class="cta">
+        <button class="btn" id="go-signup">Get started, it's free</button>
+        <button class="btn secondary" id="go-login">I already have an account</button>
+      </div>
+      <div class="features">
+        <div class="feature"><span class="fi">🎯</span><div><strong>Habits that stick</strong><p>Daily, weekly or monthly schedules with streaks.</p></div></div>
+        <div class="feature"><span class="fi">📚</span><div><strong>Tasks with due dates</strong><p>Color-coded by class, with overdue alerts.</p></div></div>
+        <div class="feature"><span class="fi">⏱️</span><div><strong>Focus timer</strong><p>Study in sessions and earn XP for every minute.</p></div></div>
+        <div class="feature"><span class="fi">🏆</span><div><strong>Level up</strong><p>Titles, daily quests, trophies and confetti.</p></div></div>
+      </div>
+      <p class="byline">Made by jsg creations</p>
     </div>
 
     <form class="card auth-card hidden" id="signup-form">
@@ -96,32 +106,50 @@
     </header>
 
     <section class="card level-card">
-      <div class="level-row">
-        <span class="level" id="level-label">Level 1</span>
-        <span class="xp-text" id="xp-text">0 / 100 XP</span>
+      <div class="level-top">
+        <span class="avatar" id="avatar">🥚</span>
+        <div class="level-info">
+          <div class="level-row">
+            <span class="level" id="level-label">Level 1</span>
+            <span class="xp-text" id="xp-text">0 / 100 XP</span>
+          </div>
+          <div class="xp-bar"><div class="xp-fill" id="xp-fill"></div></div>
+        </div>
       </div>
-      <div class="xp-bar"><div class="xp-fill" id="xp-fill"></div></div>
-    <button type="button" class="share-btn" id="share-btn">📤 Share my progress</button>
+      <button type="button" class="share-btn" id="share-btn">📤 Share my progress</button>
     </section>
 
     <nav class="tabs">
       <button class="tab active" data-tab="today"><span class="ti">✅</span>Today</button>
       <button class="tab" data-tab="habits"><span class="ti">🎯</span>Habits</button>
-      <button class="tab" data-tab="calendar"><span class="ti">📅</span>Calendar</button>
+      <button class="tab" data-tab="focus"><span class="ti">⏱️</span>Focus</button>
+      <button class="tab" data-tab="calendar"><span class="ti">📈</span>Progress</button>
       <button class="tab" data-tab="trophies"><span class="ti">🏆</span>Trophies</button>
     </nav>
 
+    <!-- TODAY TAB -->
     <section id="tab-today">
       <div class="card">
+        <h2>Daily quests</h2>
+        <p class="hint" id="quest-hint"></p>
+        <ul id="quest-list" class="list"></ul>
+      </div>
+      <div class="card">
         <h2>Today</h2>
-        <form id="task-form" class="add-form">
-          <input type="text" id="task-input" placeholder="Add a task for today" required>
+        <form id="task-form" class="add-form task-form">
+          <input type="text" id="task-input" placeholder="Add a task (e.g. Bio homework)" required>
           <button type="submit">Add</button>
+          <div class="task-extras">
+            <label class="mini">Due date <input type="date" id="task-due"></label>
+            <label class="mini">Class <input type="text" id="task-subject" placeholder="optional" list="subject-list" maxlength="20"></label>
+            <datalist id="subject-list"></datalist>
+          </div>
         </form>
         <ul id="today-list" class="list"></ul>
       </div>
     </section>
 
+    <!-- HABITS TAB -->
     <section id="tab-habits" class="hidden">
       <div class="card">
         <h2>My habits</h2>
@@ -138,6 +166,28 @@
       </div>
     </section>
 
+    <!-- FOCUS TAB -->
+    <section id="tab-focus" class="hidden">
+      <div class="card focus-card">
+        <h2>Focus timer</h2>
+        <p class="hint">Finish a session to earn 1 XP per minute. Keep this tab open while you focus.</p>
+        <div class="focus-presets">
+          <button type="button" class="chip focus-preset" data-min="15">15</button>
+          <button type="button" class="chip focus-preset" data-min="25">25</button>
+          <button type="button" class="chip focus-preset" data-min="45">45</button>
+          <button type="button" class="chip focus-preset" data-min="60">60</button>
+          <input type="number" id="focus-custom" min="1" max="180" placeholder="min">
+        </div>
+        <div class="ring" id="focus-ring"><div class="ring-inner"><span id="focus-time">25:00</span></div></div>
+        <div class="focus-controls">
+          <button type="button" class="btn" id="focus-start">Start</button>
+          <button type="button" class="btn secondary" id="focus-reset">Reset</button>
+        </div>
+        <p class="hint" id="focus-summary"></p>
+      </div>
+    </section>
+
+    <!-- TROPHIES TAB -->
     <section id="tab-trophies" class="hidden">
       <div class="card">
         <h2>Trophies</h2>
@@ -146,8 +196,14 @@
       </div>
     </section>
 
+    <!-- PROGRESS TAB -->
     <section id="tab-calendar" class="hidden">
       <div class="card stats-row" id="cal-stats"></div>
+      <div class="card">
+        <h2>Last 7 days</h2>
+        <div class="week-chart" id="week-chart"></div>
+        <ul class="insights" id="insights"></ul>
+      </div>
       <div class="card">
         <div class="cal-head">
           <button type="button" class="cal-nav" id="cal-prev">‹</button>
