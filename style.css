@@ -391,3 +391,70 @@ h2 { font-size: 1.1rem; margin-bottom: 12px; }
 
 .share-btn { margin-top: 12px; background: var(--card-2); color: var(--text); border: 1px solid var(--line); padding: 8px 14px; border-radius: 999px; font-size: 0.85rem; font-weight: 600; }
 .share-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ===================== Taskova 2.0 additions ===================== */
+.tab { font-size: 0.68rem; }
+
+.share-btn { margin-top: 12px; background: var(--card-2); color: var(--text); border: 1px solid var(--line); padding: 8px 14px; border-radius: 999px; font-size: 0.85rem; font-weight: 600; }
+.share-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Level card with avatar */
+.level-top { display: flex; align-items: center; gap: 14px; }
+.avatar { font-size: 2.4rem; width: 62px; height: 62px; display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.07); border: 1px solid var(--line); border-radius: 18px; flex-shrink: 0; }
+.level-info { flex: 1; min-width: 0; }
+.level-info .level-row { margin-bottom: 8px; }
+#tab-today { display: flex; flex-direction: column; gap: 16px; }
+
+/* Tags and due badges */
+.tag { display: inline-block; margin-left: 8px; font-size: 0.68rem; font-weight: 700; padding: 1px 8px; border: 1px solid currentColor; border-radius: 999px; vertical-align: middle; }
+.badge.late { background: rgba(255, 107, 107, 0.16); color: #ff6b6b; }
+.badge.soon { background: rgba(255, 159, 67, 0.16); color: var(--fire); }
+
+/* Task form */
+.task-form { flex-wrap: wrap; }
+#task-input { flex: 1; }
+.task-extras { display: flex; gap: 8px; width: 100%; }
+.mini { flex: 1; display: flex; flex-direction: column; gap: 4px; font-size: 0.7rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+.mini input { width: 100%; }
+input[type="date"], input[type="number"] { color-scheme: dark; }
+
+/* Focus timer */
+.focus-presets { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; margin-bottom: 16px; }
+#focus-custom { width: 78px; background: rgba(255, 255, 255, 0.07); border: 2px solid transparent; color: var(--text); padding: 8px 10px; border-radius: 999px; font-size: 0.9rem; font-family: inherit; outline: none; text-align: center; }
+#focus-custom:focus { border-color: var(--accent); }
+.chip.on { background: var(--accent); color: #fff; }
+.ring { --p: 0; width: 220px; height: 220px; margin: 8px auto 18px; border-radius: 50%; background: conic-gradient(var(--accent) calc(var(--p) * 1%), rgba(255, 255, 255, 0.08) 0); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 30px rgba(124, 140, 255, 0.25); }
+.ring-inner { width: 184px; height: 184px; border-radius: 50%; background: #12142a; display: flex; align-items: center; justify-content: center; }
+#focus-time { font-size: 2.8rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.focus-controls { display: flex; gap: 10px; justify-content: center; }
+.focus-controls .btn { min-width: 110px; }
+.focus-card .hint { text-align: center; }
+#focus-summary { margin: 14px 0 0; }
+
+/* Progress: chart and insights */
+.week-chart { display: flex; gap: 8px; height: 140px; margin-bottom: 14px; }
+.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.bar-track { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+.bar { width: 100%; min-height: 4px; border-radius: 8px 8px 4px 4px; background: linear-gradient(180deg, var(--accent-2), var(--accent)); transition: height 0.4s ease; }
+.bar-n { font-size: 0.75rem; font-weight: 700; }
+.bar-l { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; }
+.insights { list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 0.92rem; }
+
+/* Calendar heat levels */
+.cal-day.l1 { background: rgba(124, 140, 255, 0.35); }
+.cal-day.l2 { background: rgba(124, 140, 255, 0.65); }
+.cal-day.l3 { background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+
+/* Landing page */
+.landing { display: flex; flex-direction: column; gap: 16px; }
+.hero { font-size: 1.7rem; line-height: 1.15; letter-spacing: -0.02em; margin: 0; }
+.cta { display: flex; flex-direction: column; gap: 10px; }
+.features { display: flex; flex-direction: column; gap: 10px; text-align: left; }
+.feature { display: flex; gap: 12px; align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; }
+.feature p { color: var(--muted); font-size: 0.85rem; margin: 0; }
+.feature strong { display: block; }
+.fi { font-size: 1.6rem; }
+
+/* Confetti */
+.confetti { position: fixed; top: -14px; width: 9px; height: 14px; border-radius: 2px; z-index: 300; pointer-events: none; animation: confetti-fall 2.2s linear forwards; }
+@keyframes confetti-fall { to { transform: translateY(108vh) rotate(720deg); } }
