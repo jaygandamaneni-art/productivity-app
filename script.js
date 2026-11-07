@@ -17,8 +17,10 @@ function passwordProblem(pw) {
 }
 
 // ---------- State ----------
+// tasks: { id, name, doneDate, due, subject }   log: { "YYYY-MM-DD": [{ id, name, kind }] }
+// focusLog: { "YYYY-MM-DD": { m: minutes, n: sessions } }   quests: { "YYYY-MM-DD": [claimed ids] }
 function emptyState() {
-  return { xp: 0, habits: [], tasks: [], log: {} };
+  return { xp: 0, habits: [], tasks: [], log: {}, trophies: [], focusLog: {}, quests: {}, questsDone: 0 };
 }
 
 let state = emptyState();
@@ -42,7 +44,7 @@ async function loadCloud() {
 
   const saved = data && data.data;
   if (saved && saved.habits && saved.tasks && saved.log) {
-    state = saved;
+    state = Object.assign(emptyState(), saved);
   } else {
     state = emptyState();
   }
@@ -62,7 +64,9 @@ async function save() {
 // ---------- Helpers ----------
 const HABIT_XP = 10;
 const TASK_XP = 5;
+const QUEST_XP = 15;
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const FULL_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 function dateKey(d) {
   const y = d.getFullYear();
@@ -71,12 +75,23 @@ function dateKey(d) {
   return `${y}-${m}-${day}`;
 }
 
+function parseKey(key) {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
 function today() {
   return dateKey(new Date());
 }
 
 function newId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
 }
 
 function countStreak(daySet) {
@@ -107,6 +122,18 @@ function levelInfo(xp) {
   return { level, remaining, need };
 }
 
+const TITLES = [
+  [1, "Rookie", "🥚"], [2, "Apprentice", "🐣"], [3, "Adventurer", "🐥"],
+  [4, "Challenger", "🦊"], [5, "Hero", "🐺"], [7, "Champion", "🦁"],
+  [9, "Legend", "🐉"], [12, "Mythic", "🦄"], [16, "Immortal", "👑"]
+];
+
+function titleFor(level) {
+  let t = TITLES[0];
+  TITLES.forEach(x => { if (level >= x[0]) t = x; });
+  return t;
+}
+
 function isDue(habit, date) {
   if (dateKey(date) < habit.createdOn) return false;
   if (habit.freq === "daily") return true;
@@ -132,27 +159,181 @@ function timesDone(habitId) {
   );
 }
 
-// ---------- XP popups ----------
-function showToast(text, big) {
-  const el = document.createElement("div");
-  el.className = "toast" + (big ? " big" : "");
-  el.textContent = text;
-  document.body.append(el);
-  setTimeout(() => el.remove(), 1500);
+function habitStreak(h) {
+  const d = new Date();
+  let count = 0;
+  for (let i = 0; i < 400; i++) {
+    if (dateKey(d) < h.createdOn) break;
+    if (isDue(h, d)) {
+      const done = (state.log[dateKey(d)] || []).some(e => e.id === h.id);
+      if (done) count++;
+      else if (i > 0) break;
+    }
+    d.setDate(d.getDate() - 1);
+  }
+  return count;
 }
 
-function awardXP(amount) {
+// What happened on one day (used by quests and trophies)
+function dayStats(key) {
+  const entries = state.log[key] || [];
+  const f = state.focusLog[key] || { m: 0, n: 0 };
+  const due = state.habits.filter(h => isDue(h, parseKey(key)));
+  const doneIds = new Set(entries.map(e => e.id));
+  return {
+    checkins: entries.length,
+    tasksDone: entries.filter(e => e.kind === "task").length,
+    habitsDone: entries.filter(e => e.kind === "habit").length,
+    focusMinutes: f.m,
+    focusSessions: f.n,
+    allHabits: due.length > 0 && due.every(h => doneIds.has(h.id))
+  };
+}
+
+// ---------- Toasts (queued so they never overlap) and confetti ----------
+const toastQueue = [];
+let toastBusy = false;
+
+function showToast(text, big) {
+  toastQueue.push({ text, big });
+  if (!toastBusy) pumpToasts();
+}
+
+function pumpToasts() {
+  const next = toastQueue.shift();
+  if (!next) {
+    toastBusy = false;
+    return;
+  }
+  toastBusy = true;
+  const el = document.createElement("div");
+  el.className = "toast" + (next.big ? " big" : "");
+  el.textContent = next.text;
+  document.body.append(el);
+  setTimeout(() => el.remove(), 1500);
+  setTimeout(pumpToasts, 1650);
+}
+
+function confetti() {
+  const colors = ["#7c8cff", "#b06cff", "#3ddc97", "#ff9f43", "#ff6b6b", "#ffd166"];
+  for (let i = 0; i < 48; i++) {
+    const p = document.createElement("div");
+    p.className = "confetti";
+    p.style.left = Math.random() * 100 + "vw";
+    p.style.background = colors[i % colors.length];
+    p.style.animationDelay = Math.random() * 0.4 + "s";
+    p.style.animationDuration = 1.6 + Math.random() * 1.2 + "s";
+    document.body.append(p);
+    setTimeout(() => p.remove(), 3600);
+  }
+}
+
+function awardXP(amount, label) {
   const before = levelInfo(state.xp).level;
   state.xp += amount;
   const after = levelInfo(state.xp).level;
-  showToast("+" + amount + " XP");
+  showToast(label || "+" + amount + " XP");
   if (after > before) {
-    setTimeout(() => showToast("🎉 Level " + after + "!", true), 600);
+    showToast("🎉 Level " + after + " · " + titleFor(after)[1] + "!", true);
+    confetti();
   }
 }
 
 function removeXP(amount) {
   state.xp = Math.max(0, state.xp - amount);
+}
+
+// ---------- Daily quests ----------
+const QUESTS = [
+  { id: "three", text: "Check off 3 things", goal: 3, get: s => s.checkins },
+  { id: "five", text: "Check off 5 things", goal: 5, get: s => s.checkins },
+  { id: "tasks2", text: "Finish 2 tasks", goal: 2, get: s => s.tasksDone },
+  { id: "habits2", text: "Complete 2 habits", goal: 2, get: s => s.habitsDone },
+  { id: "focus", text: "Do a focus session", goal: 1, get: s => s.focusSessions },
+  { id: "focus25", text: "Focus for 25 minutes", goal: 25, get: s => s.focusMinutes },
+  { id: "allhabits", text: "Finish every habit due today", goal: 1, get: s => (s.allHabits ? 1 : 0) }
+];
+
+function todaysQuests() {
+  const key = today();
+  return QUESTS
+    .map(q => ({ q, k: hashStr(key + q.id) }))
+    .sort((a, b) => a.k - b.k)
+    .slice(0, 3)
+    .map(x => x.q);
+}
+
+function questClaimed(id) {
+  return (state.quests[today()] || []).includes(id);
+}
+
+function checkQuests() {
+  const key = today();
+  Object.keys(state.quests).forEach(k => { if (k !== key) delete state.quests[k]; });
+  const claimed = state.quests[key] || [];
+  const s = dayStats(key);
+  todaysQuests().forEach(q => {
+    if (!claimed.includes(q.id) && q.get(s) >= q.goal) {
+      claimed.push(q.id);
+      state.questsDone = (state.questsDone || 0) + 1;
+      awardXP(QUEST_XP, "🎯 Quest done: " + q.text + " (+" + QUEST_XP + " XP)");
+    }
+  });
+  state.quests[key] = claimed;
+}
+
+// ---------- Trophies ----------
+const TROPHIES = [
+  { id: "first", icon: "🌱", name: "First Step", desc: "Check off your first item", test: s => s.total >= 1 },
+  { id: "ten", icon: "🔥", name: "Warming Up", desc: "10 check-ins", test: s => s.total >= 10 },
+  { id: "fifty", icon: "💪", name: "Getting Serious", desc: "50 check-ins", test: s => s.total >= 50 },
+  { id: "hundred", icon: "💯", name: "Centurion", desc: "100 check-ins", test: s => s.total >= 100 },
+  { id: "streak3", icon: "⚡", name: "On a Roll", desc: "3-day streak", test: s => s.streak >= 3 },
+  { id: "streak7", icon: "🗓️", name: "Week Warrior", desc: "7-day streak", test: s => s.streak >= 7 },
+  { id: "streak14", icon: "🌙", name: "Two Weeks Strong", desc: "14-day streak", test: s => s.streak >= 14 },
+  { id: "streak30", icon: "👑", name: "Unstoppable", desc: "30-day streak", test: s => s.streak >= 30 },
+  { id: "level5", icon: "🚀", name: "Level 5", desc: "Reach level 5", test: s => s.level >= 5 },
+  { id: "level10", icon: "🌟", name: "Level 10", desc: "Reach level 10", test: s => s.level >= 10 },
+  { id: "perfect", icon: "✨", name: "Perfect Day", desc: "Finish 3+ habits due today", test: s => s.perfect },
+  { id: "habits3", icon: "🎯", name: "Habit Builder", desc: "Create 3 habits", test: s => s.habitCount >= 3 },
+  { id: "tasks25", icon: "📚", name: "Task Crusher", desc: "Finish 25 tasks", test: s => s.tasksDone >= 25 },
+  { id: "focus1", icon: "⏱️", name: "In the Zone", desc: "Finish a focus session", test: s => s.focusSessions >= 1 },
+  { id: "focus100", icon: "🧠", name: "Deep Work", desc: "100 focus minutes", test: s => s.focusMinutes >= 100 },
+  { id: "quests5", icon: "🏅", name: "Quest Master", desc: "Complete 5 daily quests", test: s => s.questsDone >= 5 }
+];
+
+function trophyStats() {
+  let total = 0;
+  let tasksDone = 0;
+  Object.values(state.log).forEach(arr => arr.forEach(e => {
+    total++;
+    if (e.kind === "task") tasksDone++;
+  }));
+  const f = Object.values(state.focusLog);
+  const dueToday = state.habits.filter(h => isDue(h, new Date()));
+  return {
+    total,
+    tasksDone,
+    streak: overallStreak(),
+    level: levelInfo(state.xp).level,
+    perfect: dueToday.length >= 3 && dayStats(today()).allHabits,
+    habitCount: state.habits.length,
+    focusSessions: f.reduce((n, x) => n + x.n, 0),
+    focusMinutes: f.reduce((n, x) => n + x.m, 0),
+    questsDone: state.questsDone || 0
+  };
+}
+
+function checkTrophies() {
+  if (!state.trophies) state.trophies = [];
+  const stats = trophyStats();
+  TROPHIES.forEach(t => {
+    if (!state.trophies.includes(t.id) && t.test(stats)) {
+      state.trophies.push(t.id);
+      showToast(t.icon + " " + t.name + " unlocked!", true);
+      confetti();
+    }
+  });
 }
 
 // ---------- Actions ----------
@@ -173,11 +354,15 @@ function toggleItem(kind, id) {
     const source = kind === "habit"
       ? state.habits.find(h => h.id === id)
       : task;
-    if (!source) return;
+    if (!source) {
+      if (entries.length === 0) delete state.log[t];
+      return;
+    }
     entries.push({ id, name: source.name, kind });
     awardXP(xp);
-    checkTrophies();
     if (task) task.doneDate = t;
+    checkQuests();
+    checkTrophies();
   }
   save();
   render();
@@ -194,8 +379,8 @@ function undoTodayCheckin(id, xp) {
   removeXP(xp);
 }
 
-function addTask(name) {
-  state.tasks.push({ id: newId(), name, doneDate: null });
+function addTask(name, due, subject) {
+  state.tasks.push({ id: newId(), name, doneDate: null, due: due || null, subject: subject || "" });
   save();
   render();
 }
@@ -218,7 +403,23 @@ function deleteHabit(id) {
 }
 
 // ---------- Rendering ----------
-function makeItem({ text, sub, badge, done, onToggle, onEdit, onDelete }) {
+function subjectColor(name) {
+  return "hsl(" + (hashStr(name.toLowerCase()) % 360) + " 70% 65%)";
+}
+
+function dueInfo(task) {
+  if (!task.due) return null;
+  const t = today();
+  if (task.due < t) return { label: "Overdue", cls: "late" };
+  if (task.due === t) return { label: "Due today", cls: "soon" };
+  const d = parseKey(task.due);
+  const diff = Math.round((d - parseKey(t)) / 86400000);
+  if (diff === 1) return { label: "Tomorrow", cls: "soon" };
+  if (diff < 7) return { label: WEEKDAYS[d.getDay()], cls: "" };
+  return { label: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }), cls: "" };
+}
+
+function makeItem({ text, sub, badge, badgeClass, tag, tagColor, done, onToggle, onEdit, onDelete }) {
   const li = document.createElement("li");
   li.className = "item" + (done ? " done" : "");
 
@@ -233,6 +434,13 @@ function makeItem({ text, sub, badge, done, onToggle, onEdit, onDelete }) {
   const label = document.createElement("span");
   label.className = "item-text";
   label.textContent = text;
+  if (tag) {
+    const tg = document.createElement("span");
+    tg.className = "tag";
+    tg.textContent = tag;
+    if (tagColor) tg.style.color = tagColor;
+    label.append(tg);
+  }
   if (sub) {
     const s = document.createElement("span");
     s.className = "item-sub";
@@ -243,7 +451,7 @@ function makeItem({ text, sub, badge, done, onToggle, onEdit, onDelete }) {
 
   if (badge) {
     const b = document.createElement("span");
-    b.className = "badge";
+    b.className = "badge" + (badgeClass ? " " + badgeClass : "");
     b.textContent = badge;
     li.append(b);
   }
@@ -274,19 +482,34 @@ function renderEmpty(list, message) {
   list.append(li);
 }
 
-function habitStreak(h) {
-  const d = new Date();
-  let count = 0;
-  for (let i = 0; i < 400; i++) {
-    if (dateKey(d) < h.createdOn) break;
-    if (isDue(h, d)) {
-      const done = (state.log[dateKey(d)] || []).some(e => e.id === h.id);
-      if (done) count++;
-      else if (i > 0) break;
-    }
-    d.setDate(d.getDate() - 1);
-  }
-  return count;
+function renderQuests() {
+  const s = dayStats(today());
+  const list = document.getElementById("quest-list");
+  list.innerHTML = "";
+  const quests = todaysQuests();
+  let done = 0;
+  quests.forEach(q => {
+    const claimed = questClaimed(q.id);
+    if (claimed) done++;
+    list.append(makeItem({
+      text: q.text,
+      sub: Math.min(q.get(s), q.goal) + " / " + q.goal,
+      badge: "+" + QUEST_XP + " XP",
+      done: claimed
+    }));
+  });
+  document.getElementById("quest-hint").textContent =
+    done + " of " + quests.length + " done today. New quests tomorrow.";
+}
+
+function renderSubjects() {
+  const dl = document.getElementById("subject-list");
+  dl.innerHTML = "";
+  [...new Set(state.tasks.map(t => t.subject).filter(Boolean))].forEach(n => {
+    const o = document.createElement("option");
+    o.value = n;
+    dl.append(o);
+  });
 }
 
 function renderToday() {
@@ -299,28 +522,40 @@ function renderToday() {
   state.habits.forEach(h => {
     if (!isDue(h, new Date())) return;
     count++;
+    const streak = habitStreak(h);
     list.append(makeItem({
       text: h.name,
-      badge: habitStreak(h) > 0 ? "🔥 " + habitStreak(h) : "Habit",
+      badge: streak > 0 ? "🔥 " + streak : "Habit",
       done: doneIds.has(h.id),
       onToggle: () => toggleItem("habit", h.id)
     }));
   });
 
-  state.tasks.forEach(x => {
-    if (x.doneDate && x.doneDate !== t) return;
+  const byDue = (a, b) => (a.due || "9999").localeCompare(b.due || "9999");
+  const open = state.tasks.filter(x => !x.doneDate).sort(byDue);
+  const doneToday = state.tasks.filter(x => x.doneDate === t);
+
+  [...open, ...doneToday].forEach(x => {
     count++;
+    const isDone = doneIds.has(x.id);
+    const di = isDone ? null : dueInfo(x);
     list.append(makeItem({
       text: x.name,
-      done: doneIds.has(x.id),
+      tag: x.subject || "",
+      tagColor: x.subject ? subjectColor(x.subject) : "",
+      badge: di ? di.label : "",
+      badgeClass: di ? di.cls : "",
+      done: isDone,
       onToggle: () => toggleItem("task", x.id),
       onDelete: () => deleteTask(x.id)
     }));
   });
 
-  if (count === 0) renderEmpty(list, state.habits.length === 0
-    ? "Welcome! Open the Habits tab and tap a starter habit to begin."
-    : "Nothing scheduled today. Add a task above.");
+  if (count === 0) {
+    renderEmpty(list, state.habits.length === 0
+      ? "Welcome! Open the Habits tab and tap a starter habit to begin."
+      : "Nothing scheduled today. Add a task above.");
+  }
 }
 
 const STARTERS = ["Study for 1 hour", "Review class notes", "Drink water", "Exercise", "Sleep by midnight", "Plan tomorrow"];
@@ -341,6 +576,7 @@ function renderQuickstart() {
     chip.textContent = "+ " + name;
     chip.addEventListener("click", () => {
       state.habits.push({ id: newId(), name, freq: "daily", days: [], dates: [], createdOn: today() });
+      checkTrophies();
       save();
       render();
     });
@@ -357,48 +593,14 @@ function renderHabits() {
   }
   state.habits.forEach(h => {
     const n = timesDone(h.id);
+    const streak = habitStreak(h);
     list.append(makeItem({
       text: h.name,
-      sub: describeSchedule(h) + " · done " + n + (n === 1 ? " time" : " times") + (habitStreak(h) > 1 ? " · 🔥 " + habitStreak(h) + " in a row" : ""),
+      sub: describeSchedule(h) + " · done " + n + (n === 1 ? " time" : " times") +
+        (streak > 1 ? " · 🔥 " + streak + " in a row" : ""),
       onEdit: () => openModal(h.name, h),
       onDelete: () => deleteHabit(h.id)
     }));
-  });
-}
-
-const TROPHIES = [
-  { id: "first", icon: "🌱", name: "First Step", desc: "Check off your first item", test: s => s.total >= 1 },
-  { id: "ten", icon: "🔥", name: "Warming Up", desc: "10 check-ins", test: s => s.total >= 10 },
-  { id: "hundred", icon: "💯", name: "Centurion", desc: "100 check-ins", test: s => s.total >= 100 },
-  { id: "streak3", icon: "⚡", name: "On a Roll", desc: "3-day streak", test: s => s.streak >= 3 },
-  { id: "streak7", icon: "🗓️", name: "Week Warrior", desc: "7-day streak", test: s => s.streak >= 7 },
-  { id: "streak30", icon: "👑", name: "Unstoppable", desc: "30-day streak", test: s => s.streak >= 30 },
-  { id: "level5", icon: "🚀", name: "Level 5", desc: "Reach level 5", test: s => s.level >= 5 },
-  { id: "perfect", icon: "🌟", name: "Perfect Day", desc: "Finish 3+ habits due today", test: s => s.perfect }
-];
-
-function trophyStats() {
-  const total = Object.values(state.log).reduce((n, a) => n + a.length, 0);
-  const doneIds = new Set((state.log[today()] || []).map(e => e.id));
-  const due = state.habits.filter(h => isDue(h, new Date()));
-  return {
-    total,
-    streak: overallStreak(),
-    level: levelInfo(state.xp).level,
-    perfect: due.length >= 3 && due.every(h => doneIds.has(h.id))
-  };
-}
-
-function checkTrophies() {
-  if (!state.trophies) state.trophies = [];
-  const stats = trophyStats();
-  let delay = 1300;
-  TROPHIES.forEach(t => {
-    if (!state.trophies.includes(t.id) && t.test(stats)) {
-      state.trophies.push(t.id);
-      setTimeout(() => showToast(t.icon + " " + t.name + " unlocked!", true), delay);
-      delay += 1700;
-    }
   });
 }
 
@@ -420,46 +622,18 @@ function renderTrophies() {
   });
 }
 
-function render() {
-  document.getElementById("today-date").textContent =
-    new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
-  document.getElementById("streak-count").textContent = overallStreak();
-
-  const info = levelInfo(state.xp);
-  document.getElementById("level-label").textContent = "Level " + info.level;
-  document.getElementById("xp-text").textContent = `${info.remaining} / ${info.need} XP`;
-  document.getElementById("xp-fill").style.width = (info.remaining / info.need) * 100 + "%";
-
-  renderToday();
-  renderHabits();
-  renderQuickstart();
-  renderTrophies();
-  renderCalendar();
-}
-
-// ---------- Tabs ----------
-document.querySelectorAll(".tab").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b === btn));
-    ["today", "habits", "calendar","trophies"].forEach(name =>
-      document.getElementById("tab-" + name).classList.toggle("hidden", btn.dataset.tab !== name)
-    );
-  });
-});
-
-// ---------- Calendar ----------
-let calMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-let calSelected = today();
-
 function renderStats() {
   const box = document.getElementById("cal-stats");
   const days = Object.keys(state.log).filter(k => state.log[k].length > 0).sort();
   const total = days.reduce((n, k) => n + state.log[k].length, 0);
 
-  let best = 0, run = 0, prev = null;
+  let best = 0;
+  let run = 0;
+  let prev = null;
   days.forEach(k => {
-    const [y, m, d] = k.split("-").map(Number);
-    const t = new Date(y, m - 1, d, 12).getTime();
+    const d = parseKey(k);
+    d.setHours(12);
+    const t = d.getTime();
     run = prev !== null && Math.round((t - prev) / 86400000) === 1 ? run + 1 : 1;
     if (run > best) best = run;
     prev = t;
@@ -480,8 +654,98 @@ function renderStats() {
   });
 }
 
-function renderCalendar() {
+function renderInsights() {
+  const chart = document.getElementById("week-chart");
+  chart.innerHTML = "";
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    days.push(d);
+  }
+  const counts = days.map(d => (state.log[dateKey(d)] || []).length);
+  const max = Math.max(1, ...counts);
+
+  days.forEach((d, i) => {
+    const col = document.createElement("div");
+    col.className = "bar-col";
+    const n = document.createElement("span");
+    n.className = "bar-n";
+    n.textContent = counts[i];
+    const track = document.createElement("div");
+    track.className = "bar-track";
+    const bar = document.createElement("div");
+    bar.className = "bar";
+    bar.style.height = Math.max(4, (counts[i] / max) * 100) + "%";
+    track.append(bar);
+    const l = document.createElement("span");
+    l.className = "bar-l";
+    l.textContent = WEEKDAYS[d.getDay()];
+    col.append(n, track, l);
+    chart.append(col);
+  });
+
+  const byDay = [0, 0, 0, 0, 0, 0, 0];
+  Object.keys(state.log).forEach(k => { byDay[parseKey(k).getDay()] += state.log[k].length; });
+  const bestVal = Math.max(...byDay);
+  const f = Object.values(state.focusLog);
+  const fm = f.reduce((n, x) => n + x.m, 0);
+  const fn = f.reduce((n, x) => n + x.n, 0);
+
+  const lines = [
+    bestVal > 0 ? "🏅 Your best day is " + FULL_DAYS[byDay.indexOf(bestVal)] : "🏅 Check things off to find your best day",
+    "⏱️ " + fm + " focus minutes across " + fn + " session" + (fn === 1 ? "" : "s"),
+    "🎯 " + (state.questsDone || 0) + " daily quest" + ((state.questsDone || 0) === 1 ? "" : "s") + " completed"
+  ];
+  const ul = document.getElementById("insights");
+  ul.innerHTML = "";
+  lines.forEach(text => {
+    const li = document.createElement("li");
+    li.textContent = text;
+    ul.append(li);
+  });
+}
+
+function render() {
+  document.getElementById("today-date").textContent =
+    new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+  document.getElementById("streak-count").textContent = overallStreak();
+
+  const info = levelInfo(state.xp);
+  const ti = titleFor(info.level);
+  document.getElementById("avatar").textContent = ti[2];
+  document.getElementById("level-label").textContent = "Level " + info.level + " · " + ti[1];
+  document.getElementById("xp-text").textContent = `${info.remaining} / ${info.need} XP`;
+  document.getElementById("xp-fill").style.width = (info.remaining / info.need) * 100 + "%";
+
+  renderQuests();
+  renderSubjects();
+  renderToday();
+  renderHabits();
+  renderQuickstart();
+  renderTrophies();
+  renderFocus();
   renderStats();
+  renderInsights();
+  renderCalendar();
+}
+
+// ---------- Tabs ----------
+document.querySelectorAll(".tab").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b === btn));
+    ["today", "habits", "focus", "calendar", "trophies"].forEach(name =>
+      document.getElementById("tab-" + name).classList.toggle("hidden", btn.dataset.tab !== name)
+    );
+    window.scrollTo(0, 0);
+  });
+});
+
+// ---------- Calendar ----------
+let calMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let calSelected = today();
+
+function renderCalendar() {
   const grid = document.getElementById("cal-grid");
   grid.innerHTML = "";
   document.getElementById("cal-title").textContent =
@@ -501,10 +765,11 @@ function renderCalendar() {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   for (let day = 1; day <= daysInMonth; day++) {
     const key = dateKey(new Date(year, month, day));
+    const count = (state.log[key] || []).length;
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "cal-day";
-    if (state.log[key] && state.log[key].length > 0) btn.classList.add("done");
+    if (count > 0) btn.classList.add("done", count >= 4 ? "l3" : count >= 2 ? "l2" : "l1");
     if (key === today()) btn.classList.add("today");
     if (key === calSelected) btn.classList.add("selected");
     btn.textContent = day;
@@ -516,22 +781,21 @@ function renderCalendar() {
   }
 
   const entries = state.log[calSelected] || [];
-  const total = entries.reduce((n, e) => n + (e.kind === "habit" ? HABIT_XP : TASK_XP), 0);
-  const [y, m, d] = calSelected.split("-").map(Number);
+  const f = state.focusLog[calSelected];
   document.getElementById("cal-detail-title").textContent =
-    new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }) +
-    (total > 0 ? " · +" + total + " XP" : "");
+    parseKey(calSelected).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }) +
+    (entries.length > 0 ? " · " + entries.length + " done" : "");
 
   const list = document.getElementById("cal-detail-list");
   list.innerHTML = "";
-  if (entries.length === 0) {
-    renderEmpty(list, "Nothing completed this day.");
-  } else {
-    entries.forEach(e => {
-      const xp = e.kind === "habit" ? HABIT_XP : TASK_XP;
-      list.append(makeItem({ text: e.name, badge: "+" + xp + " XP" }));
-    });
+  entries.forEach(e => {
+    const xp = e.kind === "habit" ? HABIT_XP : TASK_XP;
+    list.append(makeItem({ text: e.name, badge: "+" + xp + " XP" }));
+  });
+  if (f && f.m > 0) {
+    list.append(makeItem({ text: "⏱️ Focus time", badge: f.m + " min" }));
   }
+  if (entries.length === 0 && !(f && f.m > 0)) renderEmpty(list, "Nothing completed this day.");
 }
 
 document.getElementById("cal-prev").addEventListener("click", () => {
@@ -543,6 +807,86 @@ document.getElementById("cal-next").addEventListener("click", () => {
   calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1);
   renderCalendar();
 });
+
+// ---------- Focus timer ----------
+const focusState = { minutes: 25, running: false, endAt: 0, remainingMs: 25 * 60000, timer: null };
+
+function fmtTime(ms) {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+}
+
+function renderFocus() {
+  const total = focusState.minutes * 60000;
+  const left = focusState.running ? Math.max(0, focusState.endAt - Date.now()) : focusState.remainingMs;
+  document.getElementById("focus-time").textContent = fmtTime(left);
+  document.getElementById("focus-ring").style.setProperty("--p", ((1 - left / total) * 100).toFixed(1));
+  document.getElementById("focus-start").textContent =
+    focusState.running ? "Pause" : focusState.remainingMs < total ? "Resume" : "Start";
+  document.querySelectorAll(".focus-preset").forEach(b =>
+    b.classList.toggle("on", Number(b.dataset.min) === focusState.minutes)
+  );
+  const f = state.focusLog[today()] || { m: 0, n: 0 };
+  document.getElementById("focus-summary").textContent =
+    "Today: " + f.m + " min in " + f.n + " session" + (f.n === 1 ? "" : "s") +
+    " · This session earns " + focusState.minutes + " XP";
+}
+
+function focusTick() {
+  if (focusState.endAt - Date.now() <= 0) finishFocus();
+  else renderFocus();
+}
+
+function startPauseFocus() {
+  if (focusState.running) {
+    focusState.remainingMs = Math.max(0, focusState.endAt - Date.now());
+    focusState.running = false;
+    clearInterval(focusState.timer);
+  } else {
+    focusState.running = true;
+    focusState.endAt = Date.now() + focusState.remainingMs;
+    focusState.timer = setInterval(focusTick, 250);
+  }
+  renderFocus();
+}
+
+function resetFocus() {
+  clearInterval(focusState.timer);
+  focusState.running = false;
+  focusState.remainingMs = focusState.minutes * 60000;
+  renderFocus();
+}
+
+function setFocusMinutes(m) {
+  if (focusState.running) {
+    showToast("Pause or reset the timer first");
+    return;
+  }
+  focusState.minutes = m;
+  focusState.remainingMs = m * 60000;
+  renderFocus();
+}
+
+function finishFocus() {
+  clearInterval(focusState.timer);
+  focusState.running = false;
+  const m = focusState.minutes;
+  focusState.remainingMs = m * 60000;
+
+  const key = today();
+  const f = state.focusLog[key] || { m: 0, n: 0 };
+  f.m += m;
+  f.n += 1;
+  state.focusLog[key] = f;
+
+  awardXP(m, "⏱️ Focus complete! +" + m + " XP");
+  confetti();
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+  checkQuests();
+  checkTrophies();
+  save();
+  render();
+}
 
 // ---------- Schedule popup (create + edit) ----------
 const modal = document.getElementById("schedule-modal");
@@ -654,6 +998,7 @@ document.getElementById("modal-save").addEventListener("click", () => {
       createdOn: today()
     });
     document.getElementById("habit-input").value = "";
+    checkTrophies();
   }
 
   closeModal();
@@ -686,6 +1031,7 @@ function showAuthPart(part, notice = "") {
   );
   document.querySelectorAll(".auth-error").forEach(el => (el.textContent = ""));
   document.getElementById("auth-notice").textContent = notice;
+  window.scrollTo(0, 0);
 }
 
 function showAuth() {
@@ -702,6 +1048,7 @@ async function enterApp(user) {
     meta.username || user.email.split("@")[0];
   authView.classList.add("hidden");
   appView.classList.remove("hidden");
+  calSelected = today();
   render();
 }
 
@@ -781,24 +1128,16 @@ signupForm.addEventListener("submit", async e => {
   await enterApp(data.user);
 });
 
-// ---------- Log in (email OR username) ----------
+// ---------- Log in (email) ----------
 loginForm.addEventListener("submit", async e => {
   e.preventDefault();
   const errorBox = document.getElementById("login-error");
-  const identifier = document.getElementById("login-identifier").value.trim();
+  const email = document.getElementById("login-identifier").value.trim().toLowerCase();
   const password = document.getElementById("login-password").value;
   errorBox.textContent = "";
 
   const button = loginForm.querySelector(".btn");
   button.disabled = true;
-
-  const email = identifier.toLowerCase();
-
-  if (!email) {
-    button.disabled = false;
-    errorBox.textContent = "Wrong email or password.";
-    return;
-  }
 
   const { data, error } = await db.auth.signInWithPassword({ email, password });
 
@@ -903,6 +1242,9 @@ newpassForm.addEventListener("submit", async e => {
 // ---------- Log out ----------
 document.getElementById("logout-btn").addEventListener("click", async () => {
   await db.auth.signOut();
+  clearInterval(focusState.timer);
+  focusState.running = false;
+  focusState.remainingMs = focusState.minutes * 60000;
   currentUser = null;
   canSave = false;
   state = emptyState();
@@ -915,9 +1257,12 @@ document.getElementById("logout-btn").addEventListener("click", async () => {
 document.getElementById("task-form").addEventListener("submit", e => {
   e.preventDefault();
   const input = document.getElementById("task-input");
+  const due = document.getElementById("task-due");
+  const subject = document.getElementById("task-subject");
   const name = input.value.trim();
-  if (name) addTask(name);
+  if (name) addTask(name, due.value || null, subject.value.trim());
   input.value = "";
+  due.value = "";
 });
 
 document.getElementById("habit-form").addEventListener("submit", e => {
@@ -926,12 +1271,25 @@ document.getElementById("habit-form").addEventListener("submit", e => {
   if (name) openModal(name);
 });
 
-// ---------- Start: are they already logged in? ----------
+// ---------- Focus timer buttons ----------
+document.getElementById("focus-start").addEventListener("click", startPauseFocus);
+document.getElementById("focus-reset").addEventListener("click", resetFocus);
+document.querySelectorAll(".focus-preset").forEach(b =>
+  b.addEventListener("click", () => setFocusMinutes(Number(b.dataset.min)))
+);
+document.getElementById("focus-custom").addEventListener("change", e => {
+  const v = Math.round(Number(e.target.value));
+  if (v >= 1 && v <= 180) setFocusMinutes(v);
+  e.target.value = "";
+});
+
+// ---------- Share button ----------
 const shareBtn = document.getElementById("share-btn");
 if (shareBtn) {
   shareBtn.addEventListener("click", async () => {
     const info = levelInfo(state.xp);
-    const text = "I'm Level " + info.level + " on Taskova with a " + overallStreak() + "-day streak 🔥 Build habits, earn XP, level up:";
+    const text = "I'm Level " + info.level + " (" + titleFor(info.level)[1] + ") on Taskova with a " +
+      overallStreak() + "-day streak 🔥 Make your to-do list a game:";
     const url = location.href.split("#")[0];
     try {
       if (navigator.share) {
@@ -940,12 +1298,13 @@ if (shareBtn) {
         await navigator.clipboard.writeText(text + " " + url);
         showToast("Copied! Paste it anywhere");
       }
-    } catch (e) {
+    } catch (err) {
       // sharing was cancelled
     }
   });
 }
 
+// ---------- Start: are they already logged in? ----------
 buildChips();
 
 (async function init() {
