@@ -274,6 +274,21 @@ function renderEmpty(list, message) {
   list.append(li);
 }
 
+function habitStreak(h) {
+  const d = new Date();
+  let count = 0;
+  for (let i = 0; i < 400; i++) {
+    if (dateKey(d) < h.createdOn) break;
+    if (isDue(h, d)) {
+      const done = (state.log[dateKey(d)] || []).some(e => e.id === h.id);
+      if (done) count++;
+      else if (i > 0) break;
+    }
+    d.setDate(d.getDate() - 1);
+  }
+  return count;
+}
+
 function renderToday() {
   const t = today();
   const doneIds = new Set((state.log[t] || []).map(e => e.id));
@@ -286,7 +301,7 @@ function renderToday() {
     count++;
     list.append(makeItem({
       text: h.name,
-      badge: "Habit",
+      badge: habitStreak(h) > 0 ? "🔥 " + habitStreak(h) : "Habit",
       done: doneIds.has(h.id),
       onToggle: () => toggleItem("habit", h.id)
     }));
@@ -344,7 +359,7 @@ function renderHabits() {
     const n = timesDone(h.id);
     list.append(makeItem({
       text: h.name,
-      sub: describeSchedule(h) + " · done " + n + (n === 1 ? " time" : " times"),
+      sub: describeSchedule(h) + " · done " + n + (n === 1 ? " time" : " times") + (habitStreak(h) > 1 ? " · 🔥 " + habitStreak(h) + " in a row" : ""),
       onEdit: () => openModal(h.name, h),
       onDelete: () => deleteHabit(h.id)
     }));
@@ -912,6 +927,25 @@ document.getElementById("habit-form").addEventListener("submit", e => {
 });
 
 // ---------- Start: are they already logged in? ----------
+const shareBtn = document.getElementById("share-btn");
+if (shareBtn) {
+  shareBtn.addEventListener("click", async () => {
+    const info = levelInfo(state.xp);
+    const text = "I'm Level " + info.level + " on Taskova with a " + overallStreak() + "-day streak 🔥 Build habits, earn XP, level up:";
+    const url = location.href.split("#")[0];
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Taskova", text, url });
+      } else {
+        await navigator.clipboard.writeText(text + " " + url);
+        showToast("Copied! Paste it anywhere");
+      }
+    } catch (e) {
+      // sharing was cancelled
+    }
+  });
+}
+
 buildChips();
 
 (async function init() {
