@@ -388,3 +388,6 @@ h2 { font-size: 1.1rem; margin-bottom: 12px; }
   80%  { opacity: 1; transform: translate(-50%, -6px); }
   100% { opacity: 0; transform: translate(-50%, -16px); }
 }
+
+.share-btn { margin-top: 12px; background: var(--card-2); color: var(--text); border: 1px solid var(--line); padding: 8px 14px; border-radius: 999px; font-size: 0.85rem; font-weight: 600; }
+.share-btn:hover { border-color: var(--accent); color: var(--accent); }
