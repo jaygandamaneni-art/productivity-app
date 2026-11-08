@@ -789,10 +789,22 @@ function renderFilters() {
   document.getElementById("clear-day").classList.toggle("hidden", !taskFilter.day);
 }
 
+function dayLabel(key) {
+  return parseKey(key).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+
+function selectDay(key) {
+  taskFilter.day = taskFilter.day === key ? "" : key;
+  document.getElementById("task-due").value = taskFilter.day || "";
+  render();
+}
+
 function renderPlanner() {
   const box = document.getElementById("planner");
   box.innerHTML = "";
   const t = today();
+  document.querySelector(".planner-head h2").textContent =
+    taskFilter.day ? "New tasks go on " + dayLabel(taskFilter.day) : "Next 7 days";
   for (let i = 0; i < 7; i++) {
     const key = addDays(t, i);
     const d = parseKey(key);
@@ -810,10 +822,7 @@ function renderPlanner() {
     c.className = "pday-c" + (n ? " has" : "");
     c.textContent = n ? n : "";
     cell.append(w, num, c);
-    cell.addEventListener("click", () => {
-      taskFilter.day = taskFilter.day === key ? "" : key;
-      render();
-    });
+    cell.addEventListener("click", () => selectDay(key));
     box.append(cell);
   }
 }
@@ -1648,6 +1657,7 @@ document.getElementById("task-search").addEventListener("input", e => {
 
 document.getElementById("clear-day").addEventListener("click", () => {
   taskFilter.day = "";
+  document.getElementById("task-due").value = "";
   render();
 });
 
@@ -1684,9 +1694,9 @@ document.getElementById("task-form").addEventListener("submit", e => {
   const subject = document.getElementById("task-subject");
   const repeat = document.getElementById("task-repeat");
   const name = input.value.trim();
-  if (name) addTask(name, due.value || null, subject.value.trim(), repeat.value);
+  if (name) addTask(name, due.value || taskFilter.day || null, subject.value.trim(), repeat.value);
   input.value = "";
-  due.value = "";
+  due.value = taskFilter.day || "";
   repeat.value = "";
 });
 
