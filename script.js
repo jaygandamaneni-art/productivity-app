@@ -17,10 +17,10 @@ function passwordProblem(pw) {
 }
 
 // ---------- State ----------
-// tasks: { id, name, doneDate, due, subject }   log: { "YYYY-MM-DD": [{ id, name, kind }] }
+// tasks: { id, name, doneDate, due, subject, notes, subtasks: [{id,text,done}], repeat, nextId }   log: { "YYYY-MM-DD": [{ id, name, kind }] }
 // focusLog: { "YYYY-MM-DD": { m: minutes, n: sessions } }   quests: { "YYYY-MM-DD": [claimed ids] }
 function emptyState() {
-  return { xp: 0, habits: [], tasks: [], log: {}, trophies: [], focusLog: {}, quests: {}, questsDone: 0 };
+  return { xp: 0, habits: [], tasks: [], log: {}, trophies: [], focusLog: {}, quests: {}, questsDone: 0, countdowns: [] };
 }
 
 let state = emptyState();
@@ -149,6 +149,30 @@ function dateKey(d) {
 function parseKey(key) {
   const [y, m, d] = key.split("-").map(Number);
   return new Date(y, m - 1, d);
+}
+
+function addDays(key, n) {
+  const d = parseKey(key);
+  d.setDate(d.getDate() + n);
+  return dateKey(d);
+}
+
+function addMonthsKey(key, n) {
+  const d = parseKey(key);
+  const day = d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + n);
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, last));
+  return dateKey(d);
+}
+
+function nextDue(task) {
+  const t = dateKey(new Date());
+  const base = task.due && task.due >= t ? task.due : t;
+  if (task.repeat === "weekly") return addDays(base, 7);
+  if (task.repeat === "monthly") return addMonthsKey(base, 1);
+  return addDays(base, 1);
 }
 
 function today() {
@@ -420,7 +444,15 @@ function toggleItem(kind, id) {
     entries.splice(idx, 1);
     if (entries.length === 0) delete state.log[t];
     removeXP(xp);
-    if (task) task.doneDate = null;
+    if (task) {
+      task.doneDate = null;
+      if (task.nextId) {
+        // un-checking a repeating task removes the copy it scheduled
+        const copy = state.tasks.find(x => x.id === task.nextId);
+        if (copy && !copy.doneDate) state.tasks = state.tasks.filter(x => x.id !== copy.id);
+        task.nextId = null;
+      }
+    }
   } else {
     const source = kind === "habit"
       ? state.habits.find(h => h.id === id)
@@ -431,7 +463,19 @@ function toggleItem(kind, id) {
     }
     entries.push({ id, name: source.name, kind });
     awardXP(xp);
-    if (task) task.doneDate = t;
+    if (task) {
+      task.doneDate = t;
+      if (task.repeat) {
+        const copy = {
+          id: newId(), name: task.name, doneDate: null, due: nextDue(task),
+          subject: task.subject || "", notes: task.notes || "", repeat: task.repeat,
+          subtasks: (task.subtasks || []).map(s => ({ id: newId(), text: s.text, done: false }))
+        };
+        state.tasks.push(copy);
+        task.nextId = copy.id;
+        showToast("🔁 Next one is scheduled");
+      }
+    }
     checkQuests();
     checkTrophies();
   }
@@ -450,27 +494,71 @@ function undoTodayCheckin(id, xp) {
   removeXP(xp);
 }
 
-function addTask(name, due, subject) {
-  state.tasks.push({ id: newId(), name, doneDate: null, due: due || null, subject: subject || "" });
+function addTask(name, due, subject, repeat) {
+  state.tasks.push({
+    id: newId(), name, doneDate: null, due: due || null, subject: subject || "",
+    notes: "", subtasks: [], repeat: repeat || ""
+  });
   save();
   render();
+}
+
+function restoreCheckin(id, name, kind, xp) {
+  const t = today();
+  if (!state.log[t]) state.log[t] = [];
+  state.log[t].push({ id, name, kind });
+  state.xp += xp;
+}
+
+let undoAction = null;
+let undoTimer = null;
+
+function hideUndo() {
+  undoAction = null;
+  clearTimeout(undoTimer);
+  document.getElementById("undo-bar").classList.add("hidden");
+}
+
+function showUndo(text, fn) {
+  undoAction = fn;
+  document.getElementById("undo-text").textContent = text;
+  document.getElementById("undo-bar").classList.remove("hidden");
+  clearTimeout(undoTimer);
+  undoTimer = setTimeout(hideUndo, 7000);
 }
 
 function deleteTask(id) {
+  const idx = state.tasks.findIndex(x => x.id === id);
+  if (idx < 0) return;
+  const task = state.tasks[idx];
+  const wasChecked = (state.log[today()] || []).some(e => e.id === id);
   undoTodayCheckin(id, TASK_XP);
-  state.tasks = state.tasks.filter(x => x.id !== id);
+  state.tasks.splice(idx, 1);
   save();
   render();
+  showUndo('Deleted "' + task.name + '"', () => {
+    state.tasks.splice(Math.min(idx, state.tasks.length), 0, task);
+    if (wasChecked) restoreCheckin(task.id, task.name, "task", TASK_XP);
+    save();
+    render();
+  });
 }
 
 function deleteHabit(id) {
-  const h = state.habits.find(x => x.id === id);
-  if (!h) return;
-  if (!confirm('Delete "' + h.name + '"? Past days stay on the calendar, but today\'s check-in (and its XP) will be undone.')) return;
+  const idx = state.habits.findIndex(x => x.id === id);
+  if (idx < 0) return;
+  const habit = state.habits[idx];
+  const wasChecked = (state.log[today()] || []).some(e => e.id === id);
   undoTodayCheckin(id, HABIT_XP);
-  state.habits = state.habits.filter(x => x.id !== id);
+  state.habits.splice(idx, 1);
   save();
   render();
+  showUndo('Deleted "' + habit.name + '"', () => {
+    state.habits.splice(Math.min(idx, state.habits.length), 0, habit);
+    if (wasChecked) restoreCheckin(habit.id, habit.name, "habit", HABIT_XP);
+    save();
+    render();
+  });
 }
 
 // ---------- Rendering ----------
@@ -583,53 +671,189 @@ function renderSubjects() {
   });
 }
 
+const taskFilter = { q: "", subject: "", day: "" };
+
+function matchesSearch(name, subject) {
+  const q = taskFilter.q.trim().toLowerCase();
+  if (!q) return true;
+  return name.toLowerCase().includes(q) || (subject || "").toLowerCase().includes(q);
+}
+
+function taskMeta(x) {
+  const parts = [];
+  const subs = x.subtasks || [];
+  if (subs.length) parts.push(subs.filter(s => s.done).length + "/" + subs.length + " subtasks");
+  if (x.repeat) parts.push("🔁 " + x.repeat);
+  if (x.notes) parts.push("📝 note");
+  return parts.join(" · ");
+}
+
+function makeGroup(label) {
+  const li = document.createElement("li");
+  li.className = "group";
+  li.textContent = label;
+  return li;
+}
+
 function renderToday() {
   const t = today();
   const doneIds = new Set((state.log[t] || []).map(e => e.id));
   const list = document.getElementById("today-list");
   list.innerHTML = "";
+  const day = taskFilter.day;
+  const filtering = !!(taskFilter.q.trim() || taskFilter.subject || day);
+  const showHabits = !taskFilter.subject && (!day || day === t);
   let count = 0;
 
-  state.habits.forEach(h => {
-    if (!isDue(h, new Date())) return;
-    count++;
-    const streak = habitStreak(h);
-    list.append(makeItem({
-      text: h.name,
-      badge: streak > 0 ? "🔥 " + streak : "Habit",
-      done: doneIds.has(h.id),
-      onToggle: () => toggleItem("habit", h.id)
-    }));
-  });
+  if (showHabits) {
+    state.habits.forEach(h => {
+      if (!isDue(h, new Date()) || !matchesSearch(h.name, "")) return;
+      count++;
+      const streak = habitStreak(h);
+      list.append(makeItem({
+        text: h.name,
+        badge: streak > 0 ? "🔥 " + streak : "Habit",
+        done: doneIds.has(h.id),
+        onToggle: () => toggleItem("habit", h.id)
+      }));
+    });
+  }
 
-  const byDue = (a, b) => (a.due || "9999").localeCompare(b.due || "9999");
-  const open = state.tasks.filter(x => !x.doneDate).sort(byDue);
-  const doneToday = state.tasks.filter(x => x.doneDate === t);
-
-  [...open, ...doneToday].forEach(x => {
-    count++;
+  const makeTaskItem = x => {
     const isDone = doneIds.has(x.id);
     const di = isDone ? null : dueInfo(x);
-    list.append(makeItem({
+    return makeItem({
       text: x.name,
       tag: x.subject || "",
       tagColor: x.subject ? subjectColor(x.subject) : "",
+      sub: taskMeta(x),
       badge: di ? di.label : "",
       badgeClass: di ? di.cls : "",
       done: isDone,
       onToggle: () => toggleItem("task", x.id),
+      onEdit: () => openTaskModal(x.id),
       onDelete: () => deleteTask(x.id)
-    }));
-  });
+    });
+  };
+
+  const byDue = (a, b) => (a.due || "9999").localeCompare(b.due || "9999");
+  const pool = state.tasks.filter(x =>
+    matchesSearch(x.name, x.subject) && (!taskFilter.subject || x.subject === taskFilter.subject)
+  );
+
+  if (day) {
+    const inDay = x => (day === t ? x.due && x.due <= t : x.due === day);
+    pool.filter(x => inDay(x) && (!x.doneDate || x.doneDate === t)).sort(byDue)
+      .forEach(x => { count++; list.append(makeTaskItem(x)); });
+  } else {
+    const open = pool.filter(x => !x.doneDate).sort(byDue);
+    const nowItems = open.filter(x => !x.due || x.due <= t);
+    const later = open.filter(x => x.due && x.due > t);
+    const doneToday = pool.filter(x => x.doneDate === t);
+    [...nowItems, ...doneToday].forEach(x => { count++; list.append(makeTaskItem(x)); });
+    if (later.length) {
+      list.append(makeGroup("Upcoming"));
+      later.forEach(x => list.append(makeTaskItem(x)));
+    }
+    if (count === 0 && later.length) count = later.length;
+  }
 
   if (count === 0) {
-    renderEmpty(list, state.habits.length === 0
-      ? "Welcome! Open the Habits tab and tap a starter habit to begin."
-      : "Nothing scheduled today. Add a task above.");
+    renderEmpty(list, filtering
+      ? "Nothing matches. Try clearing the search or filters."
+      : state.habits.length === 0
+        ? "Welcome! Open the Habits tab and tap a starter habit to begin."
+        : "Nothing scheduled today. Add a task above.");
   }
 }
 
-const STARTERS = ["Study for 1 hour", "Review class notes", "Drink water", "Exercise", "Sleep by midnight", "Plan tomorrow"];
+function renderFilters() {
+  const subjects = [...new Set(state.tasks.map(t => t.subject).filter(Boolean))];
+  if (taskFilter.subject && !subjects.includes(taskFilter.subject)) taskFilter.subject = "";
+  const box = document.getElementById("task-filters");
+  box.innerHTML = "";
+  box.classList.toggle("hidden", subjects.length === 0);
+  const add = (label, value) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip" + (taskFilter.subject === value ? " on" : "");
+    chip.textContent = label;
+    chip.addEventListener("click", () => {
+      taskFilter.subject = value;
+      render();
+    });
+    box.append(chip);
+  };
+  add("All", "");
+  subjects.forEach(s => add(s, s));
+  document.getElementById("clear-day").classList.toggle("hidden", !taskFilter.day);
+}
+
+function renderPlanner() {
+  const box = document.getElementById("planner");
+  box.innerHTML = "";
+  const t = today();
+  for (let i = 0; i < 7; i++) {
+    const key = addDays(t, i);
+    const d = parseKey(key);
+    const n = state.tasks.filter(x => !x.doneDate && x.due && (i === 0 ? x.due <= t : x.due === key)).length;
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "pday" + (i === 0 ? " today" : "") + (taskFilter.day === key ? " sel" : "");
+    const w = document.createElement("span");
+    w.className = "pday-w";
+    w.textContent = i === 0 ? "Today" : WEEKDAYS[d.getDay()];
+    const num = document.createElement("span");
+    num.className = "pday-n";
+    num.textContent = d.getDate();
+    const c = document.createElement("span");
+    c.className = "pday-c" + (n ? " has" : "");
+    c.textContent = n ? n : "";
+    cell.append(w, num, c);
+    cell.addEventListener("click", () => {
+      taskFilter.day = taskFilter.day === key ? "" : key;
+      render();
+    });
+    box.append(cell);
+  }
+}
+
+function renderCountdowns() {
+  const list = document.getElementById("countdown-list");
+  list.innerHTML = "";
+  const items = (state.countdowns || []).slice().sort((a, b) => a.date.localeCompare(b.date));
+  if (items.length === 0) {
+    renderEmpty(list, "Add an exam, trip, or deadline.");
+    return;
+  }
+  const base = parseKey(today());
+  items.forEach(c => {
+    const diff = Math.round((parseKey(c.date) - base) / 86400000);
+    const label = diff > 1 ? diff + " days" : diff === 1 ? "Tomorrow" : diff === 0 ? "Today!" : Math.abs(diff) + "d ago";
+    list.append(makeItem({
+      text: c.name,
+      badge: label,
+      badgeClass: diff >= 0 && diff <= 3 ? "soon" : "",
+      onDelete: () => deleteCountdown(c.id)
+    }));
+  });
+}
+
+function deleteCountdown(id) {
+  const idx = state.countdowns.findIndex(c => c.id === id);
+  if (idx < 0) return;
+  const item = state.countdowns[idx];
+  state.countdowns.splice(idx, 1);
+  save();
+  render();
+  showUndo('Removed "' + item.name + '"', () => {
+    state.countdowns.splice(Math.min(idx, state.countdowns.length), 0, item);
+    save();
+    render();
+  });
+}
+
+const STARTERS = ["Drink water", "Exercise", "Read 10 minutes", "Stretch", "Plan tomorrow", "Sleep by midnight"];
 
 function renderQuickstart() {
   const box = document.getElementById("quickstart");
@@ -791,6 +1015,9 @@ function render() {
 
   renderQuests();
   renderSubjects();
+  renderFilters();
+  renderPlanner();
+  renderCountdowns();
   renderToday();
   renderHabits();
   renderQuickstart();
@@ -1319,6 +1546,11 @@ document.getElementById("logout-btn").addEventListener("click", async () => {
   saveAgain = false;
   clearTimeout(retryTimer);
   setSaveStatus("");
+  hideUndo();
+  taskFilter.q = "";
+  taskFilter.subject = "";
+  taskFilter.day = "";
+  document.getElementById("task-search").value = "";
   await db.auth.signOut();
   clearInterval(focusState.timer);
   focusState.running = false;
@@ -1331,16 +1563,131 @@ document.getElementById("logout-btn").addEventListener("click", async () => {
   showAuth();
 });
 
+// ---------- Task editor (notes, subtasks, repeat) ----------
+const taskModal = document.getElementById("task-modal");
+let editingTask = null;
+
+function renderModalSubtasks() {
+  const ul = document.getElementById("tm-subtasks");
+  ul.innerHTML = "";
+  editingTask.subtasks.forEach(s => {
+    ul.append(makeItem({
+      text: s.text,
+      done: s.done,
+      onToggle: () => { s.done = !s.done; renderModalSubtasks(); },
+      onDelete: () => {
+        editingTask.subtasks = editingTask.subtasks.filter(z => z.id !== s.id);
+        renderModalSubtasks();
+      }
+    }));
+  });
+}
+
+function openTaskModal(id) {
+  const x = state.tasks.find(t => t.id === id);
+  if (!x) return;
+  editingTask = { id, subtasks: (x.subtasks || []).map(s => ({ id: s.id, text: s.text, done: s.done })) };
+  document.getElementById("tm-name").value = x.name;
+  document.getElementById("tm-due").value = x.due || "";
+  document.getElementById("tm-subject").value = x.subject || "";
+  document.getElementById("tm-repeat").value = x.repeat || "";
+  document.getElementById("tm-notes").value = x.notes || "";
+  document.getElementById("tm-sub-input").value = "";
+  document.getElementById("tm-error").textContent = "";
+  renderModalSubtasks();
+  taskModal.classList.remove("hidden");
+}
+
+function closeTaskModal() {
+  taskModal.classList.add("hidden");
+  editingTask = null;
+}
+
+function addModalSubtask() {
+  const input = document.getElementById("tm-sub-input");
+  const text = input.value.trim();
+  if (!text || !editingTask) return;
+  editingTask.subtasks.push({ id: newId(), text, done: false });
+  input.value = "";
+  renderModalSubtasks();
+}
+
+document.getElementById("tm-sub-add").addEventListener("click", addModalSubtask);
+document.getElementById("tm-sub-input").addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    addModalSubtask();
+  }
+});
+document.getElementById("tm-cancel").addEventListener("click", closeTaskModal);
+document.getElementById("tm-save").addEventListener("click", () => {
+  if (!editingTask) return;
+  const x = state.tasks.find(t => t.id === editingTask.id);
+  const name = document.getElementById("tm-name").value.trim();
+  if (!x) { closeTaskModal(); return; }
+  if (!name) {
+    document.getElementById("tm-error").textContent = "Give your task a name.";
+    return;
+  }
+  x.name = name;
+  x.due = document.getElementById("tm-due").value || null;
+  x.subject = document.getElementById("tm-subject").value.trim();
+  x.repeat = document.getElementById("tm-repeat").value;
+  x.notes = document.getElementById("tm-notes").value.trim();
+  x.subtasks = editingTask.subtasks;
+  closeTaskModal();
+  save();
+  render();
+});
+
+// ---------- Search, planner reset, countdown form, undo button ----------
+document.getElementById("task-search").addEventListener("input", e => {
+  taskFilter.q = e.target.value;
+  renderToday();
+});
+
+document.getElementById("clear-day").addEventListener("click", () => {
+  taskFilter.day = "";
+  render();
+});
+
+document.getElementById("countdown-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const name = document.getElementById("countdown-name").value.trim();
+  const date = document.getElementById("countdown-date").value;
+  if (!name || !date) return;
+  state.countdowns.push({ id: newId(), name, date });
+  document.getElementById("countdown-name").value = "";
+  document.getElementById("countdown-date").value = "";
+  save();
+  render();
+});
+
+document.getElementById("undo-btn").addEventListener("click", () => {
+  const fn = undoAction;
+  hideUndo();
+  if (fn) fn();
+});
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") {
+    closeTaskModal();
+    closeModal();
+  }
+});
+
 // ---------- Task and habit forms ----------
 document.getElementById("task-form").addEventListener("submit", e => {
   e.preventDefault();
   const input = document.getElementById("task-input");
   const due = document.getElementById("task-due");
   const subject = document.getElementById("task-subject");
+  const repeat = document.getElementById("task-repeat");
   const name = input.value.trim();
-  if (name) addTask(name, due.value || null, subject.value.trim());
+  if (name) addTask(name, due.value || null, subject.value.trim(), repeat.value);
   input.value = "";
   due.value = "";
+  repeat.value = "";
 });
 
 document.getElementById("habit-form").addEventListener("submit", e => {
