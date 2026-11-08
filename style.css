@@ -556,3 +556,4 @@ input[type="date"], input[type="number"] { color-scheme: dark; }
 .save-status:empty { display: none; }
 .save-status.ok { color: var(--good); }
 .save-status.bad { color: #ff6b6b; font-weight: 700; }
+a.link { text-decoration: none; }
