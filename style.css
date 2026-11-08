@@ -458,3 +458,96 @@ input[type="date"], input[type="number"] { color-scheme: dark; }
 /* Confetti */
 .confetti { position: fixed; top: -14px; width: 9px; height: 14px; border-radius: 2px; z-index: 300; pointer-events: none; animation: confetti-fall 2.2s linear forwards; }
 @keyframes confetti-fall { to { transform: translateY(108vh) rotate(720deg); } }
+
+/* ===================== Taskova layout update ===================== */
+
+/* The sidebar wrapper is invisible on phones */
+.side { display: contents; }
+.level-row { flex-wrap: wrap; gap: 2px 8px; }
+
+/* Daily quests: small and secondary on every screen */
+.quests-card { padding: 14px; }
+.quests-card h2 { font-size: 0.95rem; margin-bottom: 2px; }
+.quests-card .hint { font-size: 0.75rem; margin-bottom: 10px; }
+.quests-card .list { gap: 6px; }
+.quests-card .item { padding: 8px 10px; border-radius: 12px; gap: 8px; }
+.quests-card .item-text { font-size: 0.82rem; font-weight: 500; }
+.quests-card .item-sub { font-size: 0.7rem; }
+.quests-card .badge { font-size: 0.62rem; padding: 2px 7px; }
+
+/* ---------- Phones and small tablets ---------- */
+@media (max-width: 899px) {
+  .app { padding: 14px 12px 112px; gap: 12px; }
+  .card { padding: 14px; border-radius: 18px; }
+  .avatar { width: 48px; height: 48px; font-size: 1.9rem; border-radius: 14px; }
+  h1 { font-size: 1.6rem; }
+  .level { font-size: 1.05rem; }
+  .hero { font-size: 1.5rem; }
+}
+
+/* ---------- Computers: a real dashboard that uses the whole screen ---------- */
+@media (min-width: 900px) {
+  .app {
+    max-width: 1280px;
+    padding: 28px 32px 48px;
+    display: grid;
+    grid-template-columns: 290px minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    column-gap: 24px;
+    row-gap: 20px;
+    align-items: start;
+  }
+
+  .card { padding: 22px; }
+  .topbar { grid-column: 1 / -1; padding: 0 4px; }
+  .topbar-right { flex-direction: row; align-items: center; gap: 14px; }
+
+  /* Left sidebar: level card + navigation, stays in view while you scroll */
+  .side { display: flex; flex-direction: column; gap: 16px; grid-column: 1; grid-row: 2; position: sticky; top: 24px; }
+  .level-top { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .level-info { width: 100%; }
+  .share-btn { width: 100%; }
+
+  .tabs { position: static; transform: none; width: auto; flex-direction: column; gap: 4px; padding: 8px; border-radius: 20px; background: var(--card); box-shadow: none; }
+  .tab { flex-direction: row; justify-content: flex-start; gap: 12px; padding: 12px 14px; font-size: 0.95rem; border-radius: 14px; }
+  .tab:hover:not(.active) { background: rgba(255, 255, 255, 0.06); color: var(--text); }
+  .ti { font-size: 1.2rem; }
+
+  /* Main area */
+  .app > section { grid-column: 2; grid-row: 2; }
+
+  /* Today: tasks are the main attraction, quests sit small on the side */
+  #tab-today { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 20px; align-items: start; }
+  .quests-card { position: sticky; top: 24px; }
+
+  /* Habits and trophies: use the width */
+  #habit-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+  #trophy-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+
+  /* Progress: stats across the top, calendar on the left, charts on the right */
+  #tab-calendar { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+  .stats-row { grid-column: 1 / -1; }
+  .cal-card { grid-column: 1; grid-row: 2; }
+  .detail-card { grid-column: 1; grid-row: 3; }
+  .insights-card { grid-column: 2; grid-row: 2 / span 2; }
+  .week-chart { height: 220px; }
+
+  /* Focus: centered and bigger */
+  #tab-focus { display: flex; justify-content: center; }
+  .focus-card { width: 100%; max-width: 560px; }
+  .ring { width: 260px; height: 260px; }
+  .ring-inner { width: 218px; height: 218px; }
+  #focus-time { font-size: 3.3rem; }
+
+  /* Landing page: headline on the left, features on the right */
+  .auth { max-width: 1000px; padding: 64px 32px; }
+  .auth h1 { font-size: 3.2rem; }
+  .landing { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr auto auto auto 1fr; column-gap: 48px; row-gap: 16px; align-items: center; text-align: left; }
+  .landing .hero { grid-column: 1; grid-row: 2; font-size: 2.8rem; }
+  .landing .tagline { grid-column: 1; grid-row: 3; font-size: 1.1rem; }
+  .landing .cta { grid-column: 1; grid-row: 4; flex-direction: row; }
+  .landing .cta .btn { flex: 1; }
+  .landing .features { grid-column: 2; grid-row: 1 / span 5; }
+  .landing .byline { grid-column: 1 / -1; grid-row: 6; text-align: center; }
+  .auth-card { width: 100%; max-width: 420px; margin: 0 auto; }
+}
