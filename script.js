@@ -27,10 +27,24 @@ let state = emptyState();
 let currentUser = null;
 let canSave = false;
 
+let lastSavedMs = 0;
+let saving = false;
+let saveAgain = false;
+let dirty = false;
+let retryTimer = null;
+let retryDelay = 3000;
+
+function setSaveStatus(text, cls) {
+  const el = document.getElementById("save-status");
+  if (!el) return;
+  el.textContent = text;
+  el.className = "save-status" + (cls ? " " + cls : "");
+}
+
 async function loadCloud() {
   const { data, error } = await db
     .from("user_data")
-    .select("data")
+    .select("data, updated_at")
     .eq("user_id", currentUser.id)
     .maybeSingle();
 
@@ -42,23 +56,80 @@ async function loadCloud() {
     return;
   }
 
+  lastSavedMs = data && data.updated_at ? new Date(data.updated_at).getTime() : 0;
   const saved = data && data.data;
   if (saved && saved.habits && saved.tasks && saved.log) {
     state = Object.assign(emptyState(), saved);
   } else {
     state = emptyState();
   }
+  dirty = false;
   canSave = true;
 }
 
+// Saves to the cloud, retries on failure, and always shows the status
 async function save() {
   if (!currentUser || !canSave) return;
-  const { error } = await db.from("user_data").upsert({
-    user_id: currentUser.id,
-    data: state,
-    updated_at: new Date().toISOString()
-  });
-  if (error) console.error("Save failed:", error);
+  dirty = true;
+  if (saving) {
+    saveAgain = true;
+    return;
+  }
+  saving = true;
+  clearTimeout(retryTimer);
+  setSaveStatus("Saving…", "");
+
+  const stamp = new Date();
+  let ok = false;
+  try {
+    const { error } = await db.from("user_data").upsert({
+      user_id: currentUser.id,
+      data: state,
+      updated_at: stamp.toISOString()
+    });
+    ok = !error;
+    if (error) console.error("Save failed:", error);
+  } catch (err) {
+    console.error("Save failed:", err);
+  }
+  saving = false;
+
+  if (!currentUser) return;
+  if (saveAgain) {
+    saveAgain = false;
+    save();
+    return;
+  }
+  if (ok) {
+    dirty = false;
+    retryDelay = 3000;
+    lastSavedMs = stamp.getTime();
+    setSaveStatus("Saved ✓", "ok");
+  } else {
+    setSaveStatus("Not saved. Retrying…", "bad");
+    retryTimer = setTimeout(save, retryDelay);
+    retryDelay = Math.min(retryDelay * 2, 30000);
+  }
+}
+
+// Pulls newer data from the cloud (for example after using another device)
+async function syncFromCloud() {
+  if (!currentUser || !canSave || dirty || saving) return;
+  const { data, error } = await db
+    .from("user_data")
+    .select("data, updated_at")
+    .eq("user_id", currentUser.id)
+    .maybeSingle();
+  if (error || !data || !data.data) return;
+  if (dirty || saving) return;
+  const cloudMs = data.updated_at ? new Date(data.updated_at).getTime() : 0;
+  if (cloudMs === lastSavedMs) return;
+  const saved = data.data;
+  if (saved.habits && saved.tasks && saved.log) {
+    state = Object.assign(emptyState(), saved);
+    lastSavedMs = cloudMs;
+    render();
+  }
 }
 
 // ---------- Helpers ----------
@@ -1049,6 +1120,8 @@ async function enterApp(user) {
   authView.classList.add("hidden");
   appView.classList.remove("hidden");
   calSelected = today();
+  currentDay = today();
+  setSaveStatus("");
   render();
 }
 
@@ -1241,6 +1314,11 @@ newpassForm.addEventListener("submit", async e => {
 
 // ---------- Log out ----------
 document.getElementById("logout-btn").addEventListener("click", async () => {
+  if (dirty && !confirm("Some changes haven't saved yet. Log out anyway?")) return;
+  dirty = false;
+  saveAgain = false;
+  clearTimeout(retryTimer);
+  setSaveStatus("");
   await db.auth.signOut();
   clearInterval(focusState.timer);
   focusState.running = false;
@@ -1303,6 +1381,43 @@ if (shareBtn) {
     }
   });
 }
+
+// ---------- Midnight refresh, tab-return sync, unsaved warning ----------
+let currentDay = today();
+
+function checkNewDay() {
+  const t = today();
+  if (t === currentDay) return;
+  currentDay = t;
+  const n = new Date();
+  calMonth = new Date(n.getFullYear(), n.getMonth(), 1);
+  calSelected = t;
+  if (currentUser) render();
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    checkNewDay();
+    syncFromCloud();
+  }
+});
+
+window.addEventListener("online", () => {
+  if (dirty) save();
+  else syncFromCloud();
+});
+
+window.addEventListener("beforeunload", e => {
+  if (dirty) {
+    e.preventDefault();
+    e.returnValue = "";
+  }
+});
+
+setInterval(checkNewDay, 20000);
+setInterval(() => {
+  if (document.visibilityState === "visible") syncFromCloud();
+}, 60000);
 
 // ---------- Start: are they already logged in? ----------
 buildChips();
