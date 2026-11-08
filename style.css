@@ -557,3 +557,65 @@ input[type="date"], input[type="number"] { color-scheme: dark; }
 .save-status.ok { color: var(--good); }
 .save-status.bad { color: #ff6b6b; font-weight: 700; }
 a.link { text-decoration: none; }
+
+/* ===================== Batch 1: planning ===================== */
+a.link { text-decoration: none; }
+.today-main, .today-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+/* Next 7 days planner */
+.planner-card { padding: 14px; }
+.planner-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.planner-head h2 { margin: 0; font-size: 0.95rem; }
+.planner { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.pday { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 2px; background: var(--card-2); border: 2px solid transparent; border-radius: 14px; color: var(--text); }
+.pday-w { color: var(--muted); text-transform: uppercase; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.04em; }
+.pday-n { font-size: 1.05rem; font-weight: 800; }
+.pday-c { min-width: 16px; height: 16px; font-size: 0.65rem; font-weight: 800; border-radius: 999px; padding: 0 5px; line-height: 16px; }
+.pday-c.has { background: var(--accent); color: #fff; }
+.pday.today { border-color: var(--fire); }
+.pday.sel { background: rgba(124, 140, 255, 0.28); border-color: var(--accent); }
+
+/* Search and filters */
+.filter-bar { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.filter-bar input[type="search"] { background: rgba(255, 255, 255, 0.07); border: 2px solid transparent; color: var(--text); padding: 9px 12px; border-radius: 12px; font-size: 0.9rem; font-family: inherit; outline: none; }
+.filter-bar input[type="search"]:focus { border-color: var(--accent); }
+.filter-bar .chip { padding: 5px 11px; font-size: 0.78rem; }
+.group { list-style: none; color: var(--muted); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 8px 2px 0; }
+
+/* Countdowns */
+.countdown-card { padding: 14px; }
+.countdown-card h2 { font-size: 0.95rem; margin-bottom: 8px; }
+.countdown-card .item { padding: 8px 10px; border-radius: 12px; gap: 8px; }
+.countdown-card .item-text { font-size: 0.85rem; font-weight: 500; }
+.countdown-form { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.countdown-form input[type="text"] { flex: 1 1 100%; }
+.countdown-form input { min-width: 0; flex: 1; background: rgba(255, 255, 255, 0.07); border: 2px solid transparent; color: var(--text); padding: 8px 10px; border-radius: 10px; font-size: 0.8rem; font-family: inherit; outline: none; }
+.countdown-form input[type="date"] { flex: 1.3; color-scheme: dark; }
+.countdown-form button { background: var(--accent); color: #fff; border: none; border-radius: 10px; width: 36px; font-weight: 800; font-size: 1.1rem; }
+
+/* Selects, notes, subtasks */
+.task-extras { flex-wrap: wrap; }
+.mini { flex: 1 1 130px; }
+.mini select, .mini textarea { width: 100%; background: rgba(255, 255, 255, 0.07); border: 2px solid transparent; color: var(--text); padding: 12px 14px; border-radius: 12px; font-size: 1rem; font-family: inherit; outline: none; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.mini select option { color: #000; }
+.mini select:focus, .mini textarea:focus { border-color: var(--accent); }
+.mini textarea { resize: vertical; }
+.sub-list { margin-bottom: 8px; }
+.sub-list .item { padding: 8px 10px; border-radius: 12px; }
+.sub-list .item-check { width: 24px; height: 24px; }
+.sub-add { margin-bottom: 0; }
+
+/* Undo bar */
+.undo-bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: 96px; background: #1d2040; border: 1px solid var(--line); border-radius: 999px; padding: 8px 8px 8px 18px; display: flex; align-items: center; gap: 12px; z-index: 150; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); font-size: 0.9rem; max-width: calc(100% - 24px); }
+.undo-bar button { background: var(--accent); color: #fff; border: none; border-radius: 999px; padding: 6px 14px; font-weight: 700; }
+
+/* On phones, the extra task options appear when you tap into the form */
+@media (max-width: 899px) {
+  .task-form:not(:focus-within) .task-extras { display: none; }
+}
+
+@media (min-width: 900px) {
+  .quests-card { position: static; }
+  .today-side { position: sticky; top: 24px; }
+  .undo-bar { bottom: 28px; }
+}
