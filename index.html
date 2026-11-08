@@ -31,11 +31,11 @@
       </div>
       <div class="features">
         <div class="feature"><span class="fi">🎯</span><div><strong>Habits that stick</strong><p>Daily, weekly or monthly schedules with streaks.</p></div></div>
-        <div class="feature"><span class="fi">📚</span><div><strong>Tasks that keep up</strong><p>Due dates, subtasks, repeats, and a weekly planner.</p></div></div>
-        <div class="feature"><span class="fi">⏱️</span><div><strong>Focus timer</strong><p>Work in focused sessions and earn XP for every minute.</p></div></div>
+        <div class="feature"><span class="fi">📚</span><div><strong>Tasks with due dates</strong><p>Color-coded by class, with overdue alerts.</p></div></div>
+        <div class="feature"><span class="fi">⏱️</span><div><strong>Focus timer</strong><p>Study in sessions and earn XP for every minute.</p></div></div>
         <div class="feature"><span class="fi">🏆</span><div><strong>Level up</strong><p>Titles, daily quests, trophies and confetti.</p></div></div>
       </div>
-      <p class="byline">Made by jsg creations</p>
+      <p class="byline">Made by jsg creations · <a class="link" href="PASTE-YOUR-LINK-HERE" target="_blank" rel="noopener">Send feedback</a></p>
     </div>
 
     <form class="card auth-card hidden" id="signup-form">
@@ -102,6 +102,7 @@
       <div class="topbar-right">
         <div class="streak">🔥 <span id="streak-count">0</span> day streak</div>
         <span class="save-status" id="save-status"></span>
+        <a class="link" href="PASTE-YOUR-LINK-HERE" target="_blank" rel="noopener">💬 Feedback</a>
         <button class="link" id="logout-btn"><span id="user-label"></span> · Log out</button>
       </div>
     </header>
@@ -132,55 +133,23 @@
 
     <!-- TODAY TAB -->
     <section id="tab-today">
-      <div class="today-main">
-        <div class="card planner-card">
-          <div class="planner-head">
-            <h2>Next 7 days</h2>
-            <button type="button" class="link hidden" id="clear-day">Show all</button>
+      <div class="card today-card">
+        <h2>Today</h2>
+        <form id="task-form" class="add-form task-form">
+          <input type="text" id="task-input" placeholder="Add a task (e.g. Bio homework)" required>
+          <button type="submit">Add</button>
+          <div class="task-extras">
+            <label class="mini">Due date <input type="date" id="task-due"></label>
+            <label class="mini">Class <input type="text" id="task-subject" placeholder="optional" list="subject-list" maxlength="20"></label>
+            <datalist id="subject-list"></datalist>
           </div>
-          <div class="planner" id="planner"></div>
-        </div>
-        <div class="card today-card">
-          <h2>Today</h2>
-          <form id="task-form" class="add-form task-form">
-            <input type="text" id="task-input" placeholder="Add a task (e.g. Send invoice)" required>
-            <button type="submit">Add</button>
-            <div class="task-extras">
-              <label class="mini">Due date <input type="date" id="task-due"></label>
-              <label class="mini">Category <input type="text" id="task-subject" placeholder="optional" list="subject-list" maxlength="20"></label>
-              <label class="mini">Repeat
-                <select id="task-repeat">
-                  <option value="">Never</option>
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                </select>
-              </label>
-              <datalist id="subject-list"></datalist>
-            </div>
-          </form>
-          <div class="filter-bar">
-            <input type="search" id="task-search" placeholder="Search tasks…">
-            <div class="chips hidden" id="task-filters"></div>
-          </div>
-          <ul id="today-list" class="list"></ul>
-        </div>
+        </form>
+        <ul id="today-list" class="list"></ul>
       </div>
-      <div class="today-side">
-        <div class="card quests-card">
-          <h2>🎯 Daily quests</h2>
-          <p class="hint" id="quest-hint"></p>
-          <ul id="quest-list" class="list"></ul>
-        </div>
-        <div class="card countdown-card">
-          <h2>⏳ Countdowns</h2>
-          <ul id="countdown-list" class="list"></ul>
-          <form id="countdown-form" class="countdown-form">
-            <input type="text" id="countdown-name" placeholder="Event" maxlength="30" required>
-            <input type="date" id="countdown-date" required>
-            <button type="submit">+</button>
-          </form>
-        </div>
+      <div class="card quests-card">
+        <h2>🎯 Daily quests</h2>
+        <p class="hint" id="quest-hint"></p>
+        <ul id="quest-list" class="list"></ul>
       </div>
     </section>
 
@@ -254,43 +223,6 @@
     </section>
 
   </main>
-
-  <!-- ========== TASK EDITOR POPUP ========== -->
-  <div class="modal hidden" id="task-modal">
-    <div class="modal-box card">
-      <h2>Edit task</h2>
-      <input type="text" id="tm-name" placeholder="Task name" maxlength="80">
-      <div class="task-extras">
-        <label class="mini">Due date <input type="date" id="tm-due"></label>
-        <label class="mini">Category <input type="text" id="tm-subject" list="subject-list" maxlength="20" placeholder="optional"></label>
-      </div>
-      <label class="mini">Repeat
-        <select id="tm-repeat">
-          <option value="">Never</option>
-          <option value="daily">Daily</option>
-          <option value="weekly">Weekly</option>
-          <option value="monthly">Monthly</option>
-        </select>
-      </label>
-      <label class="mini">Notes <textarea id="tm-notes" rows="3" maxlength="500" placeholder="Anything to remember…"></textarea></label>
-      <div>
-        <p class="hint">Subtasks</p>
-        <ul id="tm-subtasks" class="list sub-list"></ul>
-        <div class="add-form sub-add">
-          <input type="text" id="tm-sub-input" placeholder="Add a subtask" maxlength="80">
-          <button type="button" id="tm-sub-add">Add</button>
-        </div>
-      </div>
-      <p class="auth-error" id="tm-error"></p>
-      <button type="button" class="btn" id="tm-save">Save task</button>
-      <button type="button" class="link" id="tm-cancel">Cancel</button>
-    </div>
-  </div>
-
-  <div class="undo-bar hidden" id="undo-bar">
-    <span id="undo-text"></span>
-    <button type="button" id="undo-btn">Undo</button>
-  </div>
 
   <!-- ========== HABIT SCHEDULE POPUP ========== -->
   <div class="modal hidden" id="schedule-modal">
