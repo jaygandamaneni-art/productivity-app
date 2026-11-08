@@ -105,6 +105,7 @@
       </div>
     </header>
 
+    <aside class="side">
     <section class="card level-card">
       <div class="level-top">
         <span class="avatar" id="avatar">🥚</span>
@@ -126,15 +127,11 @@
       <button class="tab" data-tab="calendar"><span class="ti">📈</span>Progress</button>
       <button class="tab" data-tab="trophies"><span class="ti">🏆</span>Trophies</button>
     </nav>
+    </aside>
 
     <!-- TODAY TAB -->
     <section id="tab-today">
-      <div class="card">
-        <h2>Daily quests</h2>
-        <p class="hint" id="quest-hint"></p>
-        <ul id="quest-list" class="list"></ul>
-      </div>
-      <div class="card">
+      <div class="card today-card">
         <h2>Today</h2>
         <form id="task-form" class="add-form task-form">
           <input type="text" id="task-input" placeholder="Add a task (e.g. Bio homework)" required>
@@ -146,6 +143,11 @@
           </div>
         </form>
         <ul id="today-list" class="list"></ul>
+      </div>
+      <div class="card quests-card">
+        <h2>🎯 Daily quests</h2>
+        <p class="hint" id="quest-hint"></p>
+        <ul id="quest-list" class="list"></ul>
       </div>
     </section>
 
@@ -199,12 +201,12 @@
     <!-- PROGRESS TAB -->
     <section id="tab-calendar" class="hidden">
       <div class="card stats-row" id="cal-stats"></div>
-      <div class="card">
+      <div class="card insights-card">
         <h2>Last 7 days</h2>
         <div class="week-chart" id="week-chart"></div>
         <ul class="insights" id="insights"></ul>
       </div>
-      <div class="card">
+      <div class="card cal-card">
         <div class="cal-head">
           <button type="button" class="cal-nav" id="cal-prev">‹</button>
           <h2 id="cal-title"></h2>
@@ -212,7 +214,7 @@
         </div>
         <div class="cal-grid" id="cal-grid"></div>
       </div>
-      <div class="card">
+      <div class="card detail-card">
         <h2 id="cal-detail-title"></h2>
         <ul id="cal-detail-list" class="list"></ul>
       </div>
