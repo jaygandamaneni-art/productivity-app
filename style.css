@@ -557,3 +557,23 @@ input[type="date"], input[type="number"] { color-scheme: dark; }
 .save-status.ok { color: var(--good); }
 .save-status.bad { color: #ff6b6b; font-weight: 700; }
 a.link { text-decoration: none; }
+
+/* ---------- Bonus XP bubbles ---------- */
+.xp-bubble {
+  position: fixed;
+  z-index: 150;
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  background: radial-gradient(circle at 30% 30%, #b9c2ff, var(--accent) 55%, var(--accent-2));
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1.1;
+  box-shadow: 0 0 24px rgba(124, 140, 255, 0.8);
+  animation: bubble-pop 0.35s ease both, bubble-float 3s ease-in-out 0.35s infinite;
+}
+.xp-bubble small { display: block; font-size: 0.6rem; opacity: 0.85; }
+@keyframes bubble-pop { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes bubble-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
