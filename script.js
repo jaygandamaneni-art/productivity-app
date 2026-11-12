@@ -1119,6 +1119,7 @@ async function enterApp(user) {
     meta.username || user.email.split("@")[0];
   authView.classList.add("hidden");
   appView.classList.remove("hidden");
+  document.getElementById("task-due").value = today();
   calSelected = today();
   currentDay = today();
   setSaveStatus("");
@@ -1340,7 +1341,7 @@ document.getElementById("task-form").addEventListener("submit", e => {
   const name = input.value.trim();
   if (name) addTask(name, due.value || null, subject.value.trim());
   input.value = "";
-  due.value = "";
+  due.value = today();
 });
 
 document.getElementById("habit-form").addEventListener("submit", e => {
@@ -1392,6 +1393,7 @@ function checkNewDay() {
   const n = new Date();
   calMonth = new Date(n.getFullYear(), n.getMonth(), 1);
   calSelected = t;
+  document.getElementById("task-due").value = t;
   if (currentUser) render();
 }
 
