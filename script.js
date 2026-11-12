@@ -878,13 +878,131 @@ document.getElementById("cal-next").addEventListener("click", () => {
   calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1);
   renderCalendar();
 });
-
 // ---------- Focus timer ----------
-const focusState = { minutes: 25, running: false, endAt: 0, remainingMs: 25 * 60000, timer: null };
+const focusState = {
+  minutes: 25,
+  running: false,
+  endAt: 0,
+  remainingMs: 25 * 60000,
+  timer: null,
+  nextBubbleAt: 0,
+  bubblesShown: 0
+};
+
+const BUBBLE_AMOUNTS = [1, 2, 3, 5, 5, 8]; // possible XP inside a bubble
+const MAX_BUBBLES = 8;                      // most bubbles in one session
+
+let focusWorker = null;
+let audioCtx = null;
 
 function fmtTime(ms) {
   const s = Math.max(0, Math.ceil(ms / 1000));
   return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+}
+
+// Longer sessions pay more per minute, and each session gets a random roll
+function xpRange(m) {
+  const mult = m >= 60 ? 1.5 : m >= 45 ? 1.25 : m >= 25 ? 1.1 : 1;
+  return {
+    min: Math.max(1, Math.round(m * mult * 0.85)),
+    max: Math.max(1, Math.round(m * mult * 1.25))
+  };
+}
+
+function rollSessionXP(m) {
+  const r = xpRange(m);
+  return r.min + Math.floor(Math.random() * (r.max - r.min + 1));
+}
+
+// A worker keeps ticking even when the tab is in the background
+function startFocusTicker() {
+  stopFocusTicker();
+  try {
+    const blob = new Blob(["setInterval(function(){postMessage(1)},500)"], { type: "text/javascript" });
+    focusWorker = new Worker(URL.createObjectURL(blob));
+    focusWorker.onmessage = focusTick;
+  } catch (err) {
+    focusState.timer = setInterval(focusTick, 500);
+  }
+}
+
+function stopFocusTicker() {
+  if (focusWorker) {
+    focusWorker.terminate();
+    focusWorker = null;
+  }
+  clearInterval(focusState.timer);
+}
+
+// Browsers only allow sound after a click, so Start unlocks it
+function unlockAudio() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  } catch (err) {}
+}
+
+function playAlarm() {
+  try {
+    unlockAudio();
+    if (!audioCtx) return;
+    const t0 = audioCtx.currentTime;
+    for (let i = 0; i < 12; i++) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      const s = t0 + i * 0.35;
+      osc.type = "sine";
+      osc.frequency.value = i % 2 === 0 ? 880 : 1175;
+      gain.gain.setValueAtTime(0.0001, s);
+      gain.gain.exponentialRampToValueAtTime(0.3, s + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, s + 0.3);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(s);
+      osc.stop(s + 0.32);
+    }
+  } catch (err) {}
+}
+
+function askNotifyPermission() {
+  try {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  } catch (err) {}
+}
+
+function notifyFinished(xp) {
+  try {
+    if ("Notification" in window && Notification.permission === "granted" && document.visibilityState === "hidden") {
+      new Notification("Focus session complete 🎉", { body: "You earned " + xp + " XP. Come back and grab your reward!" });
+    }
+  } catch (err) {}
+}
+
+// Bonus XP bubbles that pop up during a session
+function clearBubbles() {
+  document.querySelectorAll(".xp-bubble").forEach(b => b.remove());
+}
+
+function spawnBubble() {
+  const amount = BUBBLE_AMOUNTS[Math.floor(Math.random() * BUBBLE_AMOUNTS.length)];
+  const el = document.createElement("button");
+  el.type = "button";
+  el.className = "xp-bubble";
+  el.innerHTML = "+" + amount + "<small>XP</small>";
+  el.style.left = (8 + Math.random() * 70) + "vw";
+  el.style.top = (18 + Math.random() * 50) + "vh";
+  el.addEventListener("click", () => {
+    el.remove();
+    awardXP(amount, "🫧 Bonus +" + amount + " XP!");
+    checkQuests();
+    checkTrophies();
+    save();
+    render();
+  });
+  document.body.append(el);
+  setTimeout(() => el.remove(), 9000);
 }
 
 function renderFocus() {
@@ -898,33 +1016,53 @@ function renderFocus() {
     b.classList.toggle("on", Number(b.dataset.min) === focusState.minutes)
   );
   const f = state.focusLog[today()] || { m: 0, n: 0 };
+  const r = xpRange(focusState.minutes);
   document.getElementById("focus-summary").textContent =
     "Today: " + f.m + " min in " + f.n + " session" + (f.n === 1 ? "" : "s") +
-    " · This session earns " + focusState.minutes + " XP";
+    " · This session earns " + r.min + "–" + r.max + " XP, plus bonus bubbles";
+  document.title = focusState.running ? fmtTime(left) + " · Focus" : "Taskova";
 }
 
 function focusTick() {
-  if (focusState.endAt - Date.now() <= 0) finishFocus();
-  else renderFocus();
+  if (!focusState.running) return;
+  const left = focusState.endAt - Date.now();
+  if (left <= 0) {
+    finishFocus();
+    return;
+  }
+  if (Date.now() >= focusState.nextBubbleAt) {
+    focusState.nextBubbleAt = Date.now() + (180 + Math.random() * 180) * 1000;
+    if (document.visibilityState === "visible" && focusState.bubblesShown < MAX_BUBBLES && left > 20000) {
+      focusState.bubblesShown++;
+      spawnBubble();
+    }
+  }
+  renderFocus();
 }
 
 function startPauseFocus() {
   if (focusState.running) {
     focusState.remainingMs = Math.max(0, focusState.endAt - Date.now());
     focusState.running = false;
-    clearInterval(focusState.timer);
+    stopFocusTicker();
+    clearBubbles();
   } else {
+    unlockAudio();
+    askNotifyPermission();
     focusState.running = true;
     focusState.endAt = Date.now() + focusState.remainingMs;
-    focusState.timer = setInterval(focusTick, 250);
+    focusState.nextBubbleAt = Date.now() + (45 + Math.random() * 45) * 1000;
+    startFocusTicker();
   }
   renderFocus();
 }
 
 function resetFocus() {
-  clearInterval(focusState.timer);
+  stopFocusTicker();
+  clearBubbles();
   focusState.running = false;
   focusState.remainingMs = focusState.minutes * 60000;
+  focusState.bubblesShown = 0;
   renderFocus();
 }
 
@@ -935,22 +1073,28 @@ function setFocusMinutes(m) {
   }
   focusState.minutes = m;
   focusState.remainingMs = m * 60000;
+  focusState.bubblesShown = 0;
   renderFocus();
 }
 
 function finishFocus() {
-  clearInterval(focusState.timer);
+  stopFocusTicker();
+  clearBubbles();
   focusState.running = false;
   const m = focusState.minutes;
   focusState.remainingMs = m * 60000;
+  focusState.bubblesShown = 0;
 
+  const xp = rollSessionXP(m);
   const key = today();
   const f = state.focusLog[key] || { m: 0, n: 0 };
   f.m += m;
   f.n += 1;
   state.focusLog[key] = f;
 
-  awardXP(m, "⏱️ Focus complete! +" + m + " XP");
+  playAlarm();
+  notifyFinished(xp);
+  awardXP(xp, "⏱️ Focus complete! +" + xp + " XP");
   confetti();
   if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
   checkQuests();
@@ -958,7 +1102,6 @@ function finishFocus() {
   save();
   render();
 }
-
 // ---------- Schedule popup (create + edit) ----------
 const modal = document.getElementById("schedule-modal");
 const weekdayChips = document.getElementById("weekday-chips");
@@ -1321,7 +1464,8 @@ document.getElementById("logout-btn").addEventListener("click", async () => {
   clearTimeout(retryTimer);
   setSaveStatus("");
   await db.auth.signOut();
-  clearInterval(focusState.timer);
+  stopFocusTicker();
+  clearBubbles();
   focusState.running = false;
   focusState.remainingMs = focusState.minutes * 60000;
   currentUser = null;
