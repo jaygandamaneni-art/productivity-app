@@ -777,10 +777,53 @@ function renderInsights() {
   });
 }
 
+// ---------- Daily motivation ----------
+const DAILY_MESSAGES = [
+  "Small steps still count. Do one thing now.",
+  "Future you is cheering for the work you do today.",
+  "Start messy. You can fix it once it exists.",
+  "Five focused minutes beat an hour of putting it off.",
+  "You don't have to feel ready. You just have to begin.",
+  "Progress is quiet, but it adds up.",
+  "Today's effort is tomorrow's easy.",
+  "Do the hardest thing first and the rest feels lighter.",
+  "Consistency beats intensity. Show up again today.",
+  "One checked box is better than a perfect plan.",
+  "Your streak is made of ordinary days like this one.",
+  "You've handled hard days before. This one is no different.",
+  "Focus on the next step, not the whole staircase.",
+  "A tired day done halfway still beats a skipped day.",
+  "Be proud of how far you've come, then keep going.",
+  "Discipline is just kindness to your future self.",
+  "Pick one task and give it your full attention.",
+  "Don't wait for motivation. Start, and it shows up.",
+  "Every level starts with one XP.",
+  "You're building something. Keep stacking days.",
+  "Rest is part of the plan. Then get back to it.",
+  "Done is better than perfect.",
+  "Make today a little better than yesterday.",
+  "The version of you that finishes this is already proud.",
+  "Clear one small task and enjoy the momentum.",
+  "Your goals are built from days exactly like this.",
+  "Put your phone down, start the timer, and go.",
+  "It's okay to go slow. Just don't stop.",
+  "What you do today is a vote for who you're becoming.",
+  "Hard now, easier later. You've got this.",
+  "Finish strong. Future you will say thanks."
+];
+
+function renderDailyMessage() {
+  const el = document.getElementById("daily-msg");
+  if (!el) return;
+  const d = new Date();
+  const dayNum = Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+  el.textContent = "💬 " + DAILY_MESSAGES[dayNum % DAILY_MESSAGES.length];
+}
 function render() {
   document.getElementById("today-date").textContent =
     new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
   document.getElementById("streak-count").textContent = overallStreak();
+    renderDailyMessage();
 
   const info = levelInfo(state.xp);
   const ti = titleFor(info.level);
