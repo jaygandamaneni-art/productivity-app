@@ -577,3 +577,15 @@ a.link { text-decoration: none; }
 .xp-bubble small { display: block; font-size: 0.6rem; opacity: 0.85; }
 @keyframes bubble-pop { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @keyframes bubble-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
+/* ---------- Daily message ---------- */
+.daily-msg {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-style: italic;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--accent);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+}
