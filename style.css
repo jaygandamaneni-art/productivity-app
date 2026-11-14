@@ -658,34 +658,47 @@ a.link { text-decoration: none; }
 .fire-pink    { filter: drop-shadow(0 0 24px rgba(255, 140, 0, 0.9)) hue-rotate(300deg) brightness(1.2); }
 .fire-dkgreen { filter: drop-shadow(0 0 24px rgba(255, 140, 0, 0.9)) hue-rotate(95deg) brightness(0.6); }
 
-/* On computers: bonfire in the middle, calendar left, stats right */
-@media (min-width: 900px) {
-  #tab-calendar {
-    grid-template-columns: minmax(250px, 1fr) minmax(320px, 1.5fr) minmax(250px, 1fr);
-    grid-template-rows: auto auto auto;
-    gap: 20px;
-    align-items: stretch;
-  }
+/* ---------- Bonfire as a banner ---------- */
+.bonfire-card {
+  display: grid;
+  grid-template-columns: minmax(150px, 280px) 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 32px;
+  text-align: left;
+  min-height: 220px;
+  padding: 24px 32px;
+  align-content: center;
+  background:
+    radial-gradient(420px 240px at 18% 55%, rgba(255, 140, 0, 0.3), transparent 70%),
+    linear-gradient(90deg, rgba(255, 140, 0, 0.08), transparent 60%),
+    var(--card);
+}
+.bonfire-stage { grid-column: 1; grid-row: 1 / span 2; align-self: center; min-height: 0; }
+.bonfire-days { grid-column: 2; grid-row: 1; align-self: end; margin-top: 0; font-size: 2.4rem; }
+.bonfire-sub { grid-column: 2; grid-row: 2; align-self: start; font-size: 1rem; }
 
+/* Phones: fire on top, text centered underneath */
+@media (max-width: 899px) {
   .bonfire-card {
-    grid-column: 2;
-    grid-row: 1 / span 3;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: 40px 22px;
-    min-height: 560px;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    text-align: center;
+    min-height: 0;
+    padding: 20px 16px;
     background:
-      radial-gradient(420px 380px at 50% 55%, rgba(255, 140, 0, 0.28), transparent 70%),
+      radial-gradient(320px 200px at 50% 40%, rgba(255, 140, 0, 0.3), transparent 70%),
       var(--card);
   }
-  .bonfire-stage { min-height: 300px; }
-  .bonfire-days { font-size: 2.2rem; }
+  .bonfire-stage { grid-column: 1; grid-row: 1; }
+  .bonfire-days { grid-column: 1; grid-row: 2; align-self: auto; margin-top: 10px; font-size: 1.8rem; }
+  .bonfire-sub { grid-column: 1; grid-row: 3; align-self: auto; }
+}
 
-  .cal-card { grid-column: 1; grid-row: 1 / span 2; }
-  .detail-card { grid-column: 1; grid-row: 3; }
-
-  .stats-row { grid-column: 3; grid-row: 1; grid-template-columns: 1fr; gap: 14px; }
-  .insights-card { grid-column: 3; grid-row: 2 / span 2; }
-  .week-chart { height: 160px; }
+/* Computers: banner across the top, everything else below it */
+@media (min-width: 900px) {
+  .bonfire-card { grid-column: 1 / -1; grid-row: 1; }
+  .stats-row { grid-row: 2; }
+  .cal-card { grid-row: 3; }
+  .detail-card { grid-row: 4; }
+  .insights-card { grid-row: 3 / span 2; }
 }
