@@ -605,3 +605,87 @@ a.link { text-decoration: none; }
   appearance: none;
   text-align: left;
 }
+
+/* ---------- Bonfire ---------- */
+.bonfire-card {
+  text-align: center;
+  padding: 26px 18px;
+  overflow: hidden;
+  background:
+    radial-gradient(520px 260px at 50% 60%, rgba(255, 140, 0, 0.2), transparent 70%),
+    var(--card);
+}
+.bonfire-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  line-height: 1;
+  min-height: 150px;
+}
+.fire-flame {
+  display: block;
+  line-height: 1;
+  transform-origin: 50% 90%;
+  filter: drop-shadow(0 0 24px rgba(255, 140, 0, 0.9));
+  animation: fire-flicker 1.4s ease-in-out infinite;
+}
+.fire-logs { display: block; font-size: 0.5em; line-height: 1; margin-top: -0.3em; }
+.bonfire-days { font-size: 1.8rem; font-weight: 800; margin-top: 14px; }
+.bonfire-sub { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
+
+@keyframes fire-flicker {
+  0%, 100% { transform: scale(1) rotate(-1deg); }
+  25% { transform: scale(1.04, 1.08) rotate(1.5deg); }
+  50% { transform: scale(0.97, 1.03) rotate(-1deg); }
+  75% { transform: scale(1.03, 1.06) rotate(1deg); }
+}
+@keyframes fire-rainbow {
+  from { filter: drop-shadow(0 0 24px rgba(255, 140, 0, 0.9)) hue-rotate(0deg); }
+  to   { filter: drop-shadow(0 0 24px rgba(255, 140, 0, 0.9)) hue-rotate(360deg); }
+}
+
+.fire-embers  { filter: grayscale(0.7) brightness(0.7) drop-shadow(0 0 8px rgba(255, 120, 0, 0.4)); opacity: 0.6; animation-duration: 3s; }
+.fire-orange  { }
+.fire-blue    { filter: drop-shadow(0 0 24px rgba(255, 140, 0, 0.9)) hue-rotate(190deg); }
+.fire-rainbow { animation: fire-flicker 1.4s ease-in-out infinite, fire-rainbow 6s linear infinite; }
+.fire-dkblue  { filter: drop-shadow(0 0 24px rgba(255, 140, 0, 0.9)) hue-rotate(200deg) brightness(0.7); }
+.fire-green   { filter: drop-shadow(0 0 24px rgba(255, 140, 0, 0.9)) hue-rotate(95deg); }
+.fire-purple  { filter: drop-shadow(0 0 24px rgba(255, 140, 0, 0.9)) hue-rotate(255deg); }
+.fire-brown   { filter: drop-shadow(0 0 24px rgba(255, 140, 0, 0.9)) saturate(0.5) brightness(0.6); }
+.fire-teal    { filter: drop-shadow(0 0 24px rgba(255, 140, 0, 0.9)) hue-rotate(150deg); }
+.fire-yellow  { filter: drop-shadow(0 0 24px rgba(255, 140, 0, 0.9)) hue-rotate(35deg) brightness(1.4) saturate(1.3); }
+.fire-pink    { filter: drop-shadow(0 0 24px rgba(255, 140, 0, 0.9)) hue-rotate(300deg) brightness(1.2); }
+.fire-dkgreen { filter: drop-shadow(0 0 24px rgba(255, 140, 0, 0.9)) hue-rotate(95deg) brightness(0.6); }
+
+/* On computers: bonfire in the middle, calendar left, stats right */
+@media (min-width: 900px) {
+  #tab-calendar {
+    grid-template-columns: minmax(250px, 1fr) minmax(320px, 1.5fr) minmax(250px, 1fr);
+    grid-template-rows: auto auto auto;
+    gap: 20px;
+    align-items: stretch;
+  }
+
+  .bonfire-card {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 40px 22px;
+    min-height: 560px;
+    background:
+      radial-gradient(420px 380px at 50% 55%, rgba(255, 140, 0, 0.28), transparent 70%),
+      var(--card);
+  }
+  .bonfire-stage { min-height: 300px; }
+  .bonfire-days { font-size: 2.2rem; }
+
+  .cal-card { grid-column: 1; grid-row: 1 / span 2; }
+  .detail-card { grid-column: 1; grid-row: 3; }
+
+  .stats-row { grid-column: 3; grid-row: 1; grid-template-columns: 1fr; gap: 14px; }
+  .insights-card { grid-column: 3; grid-row: 2 / span 2; }
+  .week-chart { height: 160px; }
+}
