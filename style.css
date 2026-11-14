@@ -702,3 +702,18 @@ a.link { text-decoration: none; }
   .detail-card { grid-row: 4; }
   .insights-card { grid-row: 3 / span 2; }
 }
+
+/* ---------- Calendar polish ---------- */
+.cal-head { margin-bottom: 16px; }
+.cal-head h2 { white-space: nowrap; font-size: 1.15rem; }
+.cal-nav { flex-shrink: 0; }
+.cal-grid { gap: 8px; }
+.cal-dow { font-weight: 700; letter-spacing: 0.05em; padding-bottom: 4px; }
+.cal-day {
+  border-radius: 14px;
+  font-weight: 600;
+  transition: transform 0.15s ease, background 0.2s ease;
+}
+.cal-day:not(.done):hover { background: rgba(124, 140, 255, 0.25); }
+.cal-day:hover { transform: translateY(-2px); }
+.cal-day.today { border-color: var(--fire); box-shadow: 0 0 12px rgba(255, 159, 67, 0.35); }
