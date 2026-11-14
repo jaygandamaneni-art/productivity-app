@@ -819,11 +819,54 @@ function renderDailyMessage() {
   const dayNum = Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
   el.textContent = "💬 " + DAILY_MESSAGES[dayNum % DAILY_MESSAGES.length];
 }
+// ---------- Bonfire ----------
+const FIRE_STAGES = [
+  { from: 1000, cls: "fire-rainbow", name: "Rainbow Inferno" },
+  { from: 900, cls: "fire-dkgreen", name: "Forest Fire" },
+  { from: 800, cls: "fire-pink", name: "Pink Blaze" },
+  { from: 700, cls: "fire-yellow", name: "Golden Flame" },
+  { from: 600, cls: "fire-teal", name: "Teal Flame" },
+  { from: 500, cls: "fire-brown", name: "Ember Flame" },
+  { from: 400, cls: "fire-purple", name: "Purple Flame" },
+  { from: 300, cls: "fire-green", name: "Green Flame" },
+  { from: 200, cls: "fire-dkblue", name: "Deep Blue Flame" },
+  { from: 100, cls: "fire-rainbow", name: "Rainbow Flame" },
+  { from: 30, cls: "fire-blue", name: "Blue Flame" },
+  { from: 1, cls: "fire-orange", name: "Campfire" },
+  { from: 0, cls: "fire-embers", name: "Embers" }
+];
+
+function renderBonfire() {
+  const stage = document.getElementById("bonfire-stage");
+  const flame = document.getElementById("fire-flame");
+  if (!stage || !flame) return;
+
+  const days = overallStreak();
+  const current = FIRE_STAGES.find(s => days >= s.from);
+  const next = [...FIRE_STAGES].reverse().find(s => s.from > days);
+
+  const size = days === 0 ? 56 : 70 + 150 * (1 - Math.exp(-days / 30));
+  stage.style.fontSize = Math.round(size) + "px";
+  flame.className = "fire-flame " + current.cls;
+
+  document.getElementById("bonfire-days").textContent =
+    days === 0 ? "Fire's out" : days + " day" + (days === 1 ? "" : "s") + " strong";
+
+  let sub;
+  if (days === 0) {
+    sub = "Your fire is down to embers. Check something off today to relight it!";
+  } else {
+    sub = current.name;
+    if (next) sub += " · " + (next.from - days) + " more day" + (next.from - days === 1 ? "" : "s") + " until the " + next.name;
+  }
+  document.getElementById("bonfire-sub").textContent = sub;
+}
 function render() {
   document.getElementById("today-date").textContent =
     new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
   document.getElementById("streak-count").textContent = overallStreak();
     renderDailyMessage();
+    renderBonfire();
 
   const info = levelInfo(state.xp);
   const ti = titleFor(info.level);
