@@ -457,8 +457,26 @@ function addTask(name, due, subject) {
 }
 
 function deleteTask(id) {
+  const task = state.tasks.find(x => x.id === id);
+  if (!task) return;
+  if (!confirm('Delete "' + task.name + '"?')) return;
   undoTodayCheckin(id, TASK_XP);
   state.tasks = state.tasks.filter(x => x.id !== id);
+  save();
+  render();
+}
+
+function editTask(id) {
+  const task = state.tasks.find(x => x.id === id);
+  if (!task) return;
+  const input = prompt("Edit task name:", task.name);
+  if (input === null) return;
+  const name = input.trim();
+  if (!name) return;
+  task.name = name;
+  Object.values(state.log).forEach(entries =>
+    entries.forEach(e => { if (e.id === id) e.name = name; })
+  );
   save();
   render();
 }
@@ -618,6 +636,7 @@ function renderToday() {
       badgeClass: di ? di.cls : "",
       done: isDone,
       onToggle: () => toggleItem("task", x.id),
+      onEdit: () => editTask(x.id),
       onDelete: () => deleteTask(x.id)
     }));
   });
