@@ -133,9 +133,12 @@ async function syncFromCloud() {
 }
 
 // ---------- Helpers ----------
-const HABIT_XP = 10;
-const TASK_XP = 5;
-const QUEST_XP = 15;
+const HABIT_XP = 3;
+const TASK_XP = 2;
+const QUEST_XP = 10;
+const DAILY_XP_LIMIT = 20;   // check-offs per day that give XP
+const MAX_OPEN_TASKS = 100;
+const MAX_HABITS = 30;
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const FULL_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -184,11 +187,11 @@ function overallStreak() {
 function levelInfo(xp) {
   let level = 1;
   let remaining = xp;
-  let need = 100;
+  let need = 30;
   while (remaining >= need) {
     remaining -= need;
     level++;
-    need = 100 + (level - 1) * 50;
+    need = Math.round(need * 1.25);
   }
   return { level, remaining, need };
 }
@@ -413,13 +416,15 @@ function toggleItem(kind, id) {
   if (!state.log[t]) state.log[t] = [];
   const entries = state.log[t];
   const idx = entries.findIndex(e => e.id === id);
-  const xp = kind === "habit" ? HABIT_XP : TASK_XP;
+  const baseXP = kind === "habit" ? HABIT_XP : TASK_XP;
   const task = kind === "task" ? state.tasks.find(x => x.id === id) : null;
 
   if (idx >= 0) {
+    const entry = entries[idx];
+    const refund = typeof entry.xp === "number" ? entry.xp : baseXP;
     entries.splice(idx, 1);
     if (entries.length === 0) delete state.log[t];
-    removeXP(xp);
+    removeXP(refund);
     if (task) task.doneDate = null;
   } else {
     const source = kind === "habit"
@@ -429,8 +434,10 @@ function toggleItem(kind, id) {
       if (entries.length === 0) delete state.log[t];
       return;
     }
-    entries.push({ id, name: source.name, kind });
-    awardXP(xp);
+    const earned = entries.length >= DAILY_XP_LIMIT ? 0 : baseXP;
+    entries.push({ id, name: source.name, kind, xp: earned });
+    if (earned > 0) awardXP(earned);
+    else showToast("Daily XP limit reached (" + DAILY_XP_LIMIT + "). No XP for this one");
     if (task) task.doneDate = t;
     checkQuests();
     checkTrophies();
@@ -445,17 +452,22 @@ function undoTodayCheckin(id, xp) {
   if (!entries) return;
   const idx = entries.findIndex(e => e.id === id);
   if (idx < 0) return;
+  const refund = typeof entries[idx].xp === "number" ? entries[idx].xp : xp;
   entries.splice(idx, 1);
   if (entries.length === 0) delete state.log[t];
-  removeXP(xp);
+  removeXP(refund);
 }
 
 function addTask(name, due, subject) {
+  const open = state.tasks.filter(x => !x.doneDate).length;
+  if (open >= MAX_OPEN_TASKS) {
+    alert("You have " + MAX_OPEN_TASKS + " open tasks. Finish or delete some before adding more.");
+    return;
+  }
   state.tasks.push({ id: newId(), name, doneDate: null, due: due || null, subject: subject || "" });
   save();
   render();
 }
-
 function deleteTask(id) {
   const task = state.tasks.find(x => x.id === id);
   if (!task) return;
@@ -965,7 +977,7 @@ function renderCalendar() {
   const list = document.getElementById("cal-detail-list");
   list.innerHTML = "";
   entries.forEach(e => {
-    const xp = e.kind === "habit" ? HABIT_XP : TASK_XP;
+      const xp = typeof e.xp === "number" ? e.xp : (e.kind === "habit" ? HABIT_XP : TASK_XP);
     list.append(makeItem({ text: e.name, badge: "+" + xp + " XP" }));
   });
   if (f && f.m > 0) {
@@ -994,7 +1006,7 @@ const focusState = {
   bubblesShown: 0
 };
 
-const BUBBLE_AMOUNTS = [1, 2, 3, 5, 5, 8]; // possible XP inside a bubble
+const BUBBLE_AMOUNTS = [1, 1, 2, 2, 3, 5]; // possible XP inside a bubble
 const MAX_BUBBLES = 8;                      // most bubbles in one session
 
 let focusWorker = null;
@@ -1009,8 +1021,8 @@ function fmtTime(ms) {
 function xpRange(m) {
   const mult = m >= 60 ? 1.5 : m >= 45 ? 1.25 : m >= 25 ? 1.1 : 1;
   return {
-    min: Math.max(1, Math.round(m * mult * 0.85)),
-    max: Math.max(1, Math.round(m * mult * 1.25))
+    min: Math.max(1, Math.round(m * mult * 0.25 * 0.85)),
+    max: Math.max(1, Math.round(m * mult * 0.25 * 1.25))
   };
 }
 
@@ -1299,6 +1311,10 @@ document.getElementById("modal-save").addEventListener("click", () => {
     return;
   }
 
+    if (!pending.editId && state.habits.length >= MAX_HABITS) {
+    errorBox.textContent = "You can have up to " + MAX_HABITS + " habits.";
+    return;
+  }
   if (pending.editId) {
     const h = state.habits.find(x => x.id === pending.editId);
     if (h) {
