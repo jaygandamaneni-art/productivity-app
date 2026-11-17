@@ -107,6 +107,7 @@
         <div class="streak">🔥 <span id="streak-count">0</span> day streak</div>
         <span class="save-status" id="save-status"></span>
         <a class="link" href="https://tally.so/r/8NzyNA" target="_blank" rel="noopener">💬 Feedback</a>
+        <button class="link" id="delete-data-btn">Delete my data</button>
         <button class="link" id="logout-btn"><span id="user-label"></span> · Log out</button>
       </div>
     </header>
@@ -266,6 +267,17 @@
     </div>
   </div>
 
+    <!-- ========== DELETE MY DATA POPUP ========== -->
+  <div class="modal hidden" id="delete-modal">
+    <div class="modal-box card">
+      <h2>Delete all my data?</h2>
+      <p class="hint">This permanently erases your tasks, habits, XP, trophies and streak. It can't be undone. Enter your password to confirm.</p>
+      <input type="password" id="delete-password" placeholder="Your password" autocomplete="current-password">
+      <p class="auth-error" id="delete-error"></p>
+      <button type="button" class="btn danger" id="delete-confirm">Delete everything</button>
+      <button type="button" class="link" id="delete-cancel">Cancel</button>
+    </div>
+  </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="script.js"></script>
 </body>
