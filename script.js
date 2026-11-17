@@ -1615,6 +1615,84 @@ document.getElementById("logout-btn").addEventListener("click", async () => {
   showAuth();
 });
 
+// ---------- Delete my data ----------
+const deleteModal = document.getElementById("delete-modal");
+const deletePw = document.getElementById("delete-password");
+const deleteError = document.getElementById("delete-error");
+const deleteConfirm = document.getElementById("delete-confirm");
+
+document.getElementById("delete-data-btn").addEventListener("click", () => {
+  deletePw.value = "";
+  deleteError.textContent = "";
+  deleteModal.classList.remove("hidden");
+  deletePw.focus();
+});
+
+document.getElementById("delete-cancel").addEventListener("click", () => {
+  deleteModal.classList.add("hidden");
+  deletePw.value = "";
+});
+
+deleteConfirm.addEventListener("click", async () => {
+  const pw = deletePw.value;
+  deleteError.textContent = "";
+  if (!pw) {
+    deleteError.textContent = "Enter your password.";
+    return;
+  }
+  deleteConfirm.disabled = true;
+
+  // Step 1: check the password
+  const { error: pwError } = await db.auth.signInWithPassword({
+    email: currentUser.email,
+    password: pw
+  });
+  if (pwError) {
+    deleteConfirm.disabled = false;
+    deleteError.textContent = "Wrong password.";
+    return;
+  }
+
+  // Step 2: stop autosaves so nothing overwrites the wipe
+  canSave = false;
+  dirty = false;
+  saveAgain = false;
+  clearTimeout(retryTimer);
+  while (saving) await new Promise(r => setTimeout(r, 100));
+
+  // Step 3: replace the saved data with an empty save file
+  const { error } = await db.from("user_data").upsert({
+    user_id: currentUser.id,
+    data: emptyState(),
+    updated_at: new Date().toISOString()
+  });
+  if (error) {
+    console.error(error);
+    canSave = true;
+    deleteConfirm.disabled = false;
+    deleteError.textContent = "Couldn't delete right now. Check your connection and try again.";
+    return;
+  }
+
+  // Step 4: log out
+  await db.auth.signOut();
+  stopFocusTicker();
+  clearBubbles();
+  focusState.running = false;
+  focusState.remainingMs = focusState.minutes * 60000;
+  currentUser = null;
+  canSave = false;
+  state = emptyState();
+  deleteConfirm.disabled = false;
+  deletePw.value = "";
+  deleteModal.classList.add("hidden");
+  setSaveStatus("");
+  signupForm.reset();
+  loginForm.reset();
+  showAuth();
+  showAuthPart("home", "Your data was deleted.");
+});
+
 // ---------- Task and habit forms ----------
 document.getElementById("task-form").addEventListener("submit", e => {
   e.preventDefault();
