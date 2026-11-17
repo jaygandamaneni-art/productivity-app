@@ -626,7 +626,8 @@ function renderToday() {
     const streak = habitStreak(h);
     list.append(makeItem({
       text: h.name,
-      badge: streak > 0 ? "🔥 " + streak : "Habit",
+         badge: doneIds.has(h.id) && noXpEntry(h.id) ? "No XP" : (streak > 0 ? "🔥 " + streak : "Habit"),
+      badgeClass: doneIds.has(h.id) && noXpEntry(h.id) ? "limit" : "",
       done: doneIds.has(h.id),
       onToggle: () => toggleItem("habit", h.id)
     }));
@@ -644,8 +645,8 @@ function renderToday() {
       text: x.name,
       tag: x.subject || "",
       tagColor: x.subject ? subjectColor(x.subject) : "",
-      badge: di ? di.label : "",
-      badgeClass: di ? di.cls : "",
+      badge: di ? di.label : (isDone && noXpEntry(x.id) ? "No XP" : ""),
+      badgeClass: di ? di.cls : (isDone && noXpEntry(x.id) ? "limit" : ""),
       done: isDone,
       onToggle: () => toggleItem("task", x.id),
       onEdit: () => editTask(x.id),
@@ -892,6 +893,22 @@ function renderBonfire() {
   }
   document.getElementById("bonfire-sub").textContent = sub;
 }
+// ---------- Daily XP limit display ----------
+function noXpEntry(id) {
+  const e = (state.log[today()] || []).find(x => x.id === id);
+  return !!e && e.xp === 0;
+}
+
+function renderLimit() {
+  const el = document.getElementById("limit-badge");
+  if (!el) return;
+  const n = (state.log[today()] || []).length;
+  const hit = n >= DAILY_XP_LIMIT;
+  el.className = "limit-badge" + (hit ? " hit" : "");
+  el.textContent = hit
+    ? "🛑 Daily XP limit reached (" + DAILY_XP_LIMIT + "/" + DAILY_XP_LIMIT + "). More check-offs won't earn XP until tomorrow."
+    : "⭐ " + n + " / " + DAILY_XP_LIMIT + " XP check-offs today";
+}
 function render() {
   document.getElementById("today-date").textContent =
     new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
@@ -907,6 +924,7 @@ function render() {
   document.getElementById("xp-fill").style.width = (info.remaining / info.need) * 100 + "%";
 
   renderQuests();
+  renderLimit();
   renderSubjects();
   renderToday();
   renderHabits();
