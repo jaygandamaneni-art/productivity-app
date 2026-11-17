@@ -717,3 +717,19 @@ a.link { text-decoration: none; }
 .cal-day:not(.done):hover { background: rgba(124, 140, 255, 0.25); }
 .cal-day:hover { transform: translateY(-2px); }
 .cal-day.today { border-color: var(--fire); box-shadow: 0 0 12px rgba(255, 159, 67, 0.35); }
+
+/* ---------- Daily XP limit ---------- */
+.limit-badge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.limit-badge.hit {
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.12);
+  border: 1px solid rgba(255, 107, 107, 0.4);
+  padding: 8px 12px;
+  border-radius: 12px;
+}
+.badge.limit { background: rgba(255, 255, 255, 0.08); color: var(--muted); }
